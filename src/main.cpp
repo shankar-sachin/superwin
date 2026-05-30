@@ -18,6 +18,7 @@
 #include "core/Settings.h"
 #include "core/SingleInstance.h"
 #include "core/TrayIcon.h"
+#include "core/Updater.h"
 
 using namespace superwin;
 
@@ -40,6 +41,11 @@ using namespace superwin;
 #include <winrt/Microsoft.UI.Xaml.Markup.h>          // IXamlMetadataProvider, IXamlType
 #include <winrt/Microsoft.UI.Xaml.XamlTypeInfo.h>    // XamlControlsXamlMetaDataProvider
 
+#include <memory>
+#include <string>
+
+#include "app/Shell.h"
+
 namespace winrt {
 using namespace winrt::Microsoft::UI::Xaml;
 using namespace winrt::Microsoft::UI::Xaml::Controls;
@@ -56,28 +62,21 @@ namespace {
 // framework faults with E_UNEXPECTED inside Microsoft.UI.Xaml.dll.
 struct App : winrt::ApplicationT<App, winrt::IXamlMetadataProvider> {
     App() {
-        Resources().MergedDictionaries().Append(winrt::XamlControlsResources());
+        UnhandledException([](winrt::Windows::Foundation::IInspectable const&,
+                              winrt::Microsoft::UI::Xaml::UnhandledExceptionEventArgs const& e) {
+            ::OutputDebugStringW((std::wstring(L"SuperWin XAML unhandled: ") + e.Message().c_str() + L"\n").c_str());
+        });
     }
 
     void OnLaunched(winrt::Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
-        window_ = winrt::Window();
-        window_.Title(L"SuperWin");
+        // Load the default WinUI control styles. This must happen here, not in
+        // the App constructor -- doing it before the framework is fully up
+        // faults with E_UNEXPECTED.
+        Resources().MergedDictionaries().Append(winrt::XamlControlsResources());
 
-        auto panel = winrt::StackPanel();
-        panel.Padding(winrt::ThicknessHelper::FromUniformLength(24));
-        panel.Spacing(8);
-
-        auto heading = winrt::TextBlock();
-        heading.Text(L"SuperWin");
-        heading.FontSize(28);
-        panel.Children().Append(heading);
-
-        auto sub = winrt::TextBlock();
-        sub.Text(L"WinUI 3 dashboard online — modules coming next.");
-        panel.Children().Append(sub);
-
-        window_.Content(panel);
-        window_.Activate();
+        shell_ = std::make_unique<Shell>();
+        auto window = shell_->Create();
+        window.Activate();
     }
 
     // --- IXamlMetadataProvider (delegated to the WinUI controls provider) ---
@@ -97,7 +96,7 @@ private:
         return provider_;
     }
 
-    winrt::Window window_{nullptr};
+    std::unique_ptr<Shell> shell_;
     winrt::XamlControlsXamlMetaDataProvider provider_{nullptr};
 };
 
@@ -112,7 +111,9 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
+    Updater::Initialize();  // background auto-update checks via WinSparkle
     winrt::Microsoft::UI::Xaml::Application::Start([](auto&&) { winrt::make<App>(); });
+    Updater::Shutdown();
     return 0;
 }
 
@@ -206,6 +207,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR /*cmdLine*/, int) {
     ctx.tray->AddSeparator();
     ctx.tray->AddMenuItem(L"Start with Windows",
         [] { Autostart::SetEnabled(!Autostart::IsEnabled()); });
+    ctx.tray->AddMenuItem(L"Check for updates…", [] { Updater::CheckNow(); });
     ctx.tray->AddSeparator();
     ctx.tray->AddMenuItem(L"Quit", [host] { ::DestroyWindow(host); });
 
@@ -220,12 +222,15 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR /*cmdLine*/, int) {
 
     ::SetWindowLongPtrW(host, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&ctx));
 
+    Updater::Initialize();  // background auto-update checks via WinSparkle
+
     MSG msg;
     while (::GetMessageW(&msg, nullptr, 0, 0) > 0) {
         ::TranslateMessage(&msg);
         ::DispatchMessageW(&msg);
     }
 
+    Updater::Shutdown();
     ctx.tray.reset();
     ::CoUninitialize();
     return static_cast<int>(msg.wParam);

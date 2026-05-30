@@ -72,14 +72,42 @@ endif()
 # ---------------------------------------------------------------------------
 option(SUPERWIN_ENABLE_WINUI "Build the WinUI 3 dashboard (requires Windows App SDK via NuGet)" OFF)
 
-set(SUPERWIN_APP_SOURCES src/main.cpp)
+set(SUPERWIN_APP_SOURCES src/main.cpp src/app.manifest)
 
 add_executable(SuperWin WIN32 ${SUPERWIN_APP_SOURCES})
 target_link_libraries(SuperWin PRIVATE superwin_core Comctl32)
 set_target_properties(SuperWin PROPERTIES OUTPUT_NAME "SuperWin")
 
+# ---- Version resource + WinSparkle auto-updater (always built into the app) ----
+target_sources(SuperWin PRIVATE src/version.rc src/core/Updater.cpp)
+
+set(WINSPARKLE_DIR "${CMAKE_SOURCE_DIR}/third_party/winsparkle")
+target_include_directories(SuperWin PRIVATE "${WINSPARKLE_DIR}/include")
+target_link_libraries(SuperWin PRIVATE "${WINSPARKLE_DIR}/x64/WinSparkle.lib")
+add_custom_command(TARGET SuperWin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${WINSPARKLE_DIR}/x64/WinSparkle.dll"
+        "$<TARGET_FILE_DIR:SuperWin>/WinSparkle.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/SuperWin.ico"
+        "$<TARGET_FILE_DIR:SuperWin>/SuperWin.ico"
+    COMMENT "Deploying WinSparkle.dll + app icon next to SuperWin.exe")
+
 if (SUPERWIN_ENABLE_WINUI)
     target_compile_definitions(SuperWin PRIVATE SUPERWIN_ENABLE_WINUI=1)
+
+    # WinUI 3 UI: shell + module pages (these pull in C++/WinRT headers).
+    target_sources(SuperWin PRIVATE
+        src/app/Shell.cpp
+        src/app/HomePage.cpp
+        src/modules/volume/VolumePage.cpp
+        src/modules/volume/AudioSessions.cpp
+        src/modules/clipboard/ClipPage.cpp
+        src/modules/diagnostics/DiagPage.cpp
+        src/modules/diagnostics/HardwareProbe.cpp
+        src/modules/notepad/EditorPage.cpp
+        src/modules/colorpicker/ColorPickerPage.cpp
+    )
     set_property(TARGET SuperWin PROPERTY VS_PACKAGE_REFERENCES
         "Microsoft.Windows.CppWinRT_2.0.250303.1"
         "Microsoft.WindowsAppSDK_1.8.260508005"
@@ -89,27 +117,17 @@ if (SUPERWIN_ENABLE_WINUI)
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_AppxPackage "false")
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_UseWinUI "true")
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_CppWinRTOptimized "true")
-    # Auto-initializers from the WindowsAppSDK Foundation package: bootstrap the
-    # runtime and enable undocked reg-free WinRT activation before main(), so an
-    # unpackaged app can construct WinUI types without registration/MSIX.
-    set_property(TARGET SuperWin PROPERTY VS_GLOBAL_WindowsAppSdkBootstrapInitialize "true")
+    # Self-contained: deploy the whole Windows App Runtime (DLLs + a correctly
+    # merged resources.pri containing the WinUI theme resources) next to the exe.
+    # This fixes XamlControlsResources/theme lookup for an unpackaged app and
+    # removes the need to install the runtime redist separately.
+    #
+    # Self-contained is mutually exclusive with the bootstrapper: the runtime is
+    # loaded from local DLLs, so we must NOT enable WindowsAppSdkBootstrapInitialize
+    # (it would fail-fast before main trying to find a framework package). We keep
+    # undocked reg-free WinRT so WinUI types activate from the local DLLs.
+    set_property(TARGET SuperWin PROPERTY VS_GLOBAL_WindowsAppSDKSelfContained "true")
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_WindowsAppSdkUndockedRegFreeWinRTInitialize "true")
-
-    # The auto-initializer calls MddBootstrapInitialize2/Shutdown from the
-    # Foundation package's Bootstrap.lib. The package props add it to
-    # AdditionalDependencies, but CMake's link settings win the import-order
-    # race, so link it explicitly. Glob the NuGet cache for version-robustness.
-    set(_nuget_root "$ENV{USERPROFILE}/.nuget/packages")
-    if (DEFINED ENV{NUGET_PACKAGES})
-        set(_nuget_root "$ENV{NUGET_PACKAGES}")
-    endif()
-    file(GLOB _wasdk_bootstrap_libs
-        "${_nuget_root}/microsoft.windowsappsdk.foundation/*/lib/native/x64/Microsoft.WindowsAppRuntime.Bootstrap.lib")
-    if (_wasdk_bootstrap_libs)
-        list(GET _wasdk_bootstrap_libs -1 _wasdk_bootstrap_lib)
-        target_link_libraries(SuperWin PRIVATE "${_wasdk_bootstrap_lib}")
-        message(STATUS "Linking WindowsAppSDK bootstrap: ${_wasdk_bootstrap_lib}")
-    else()
-        message(WARNING "WindowsAppRuntime.Bootstrap.lib not found under ${_nuget_root}; run a NuGet restore first.")
-    endif()
+    # WinUI's MRT loads theme resources from "resources.pri" next to the exe.
+    set_property(TARGET SuperWin PROPERTY VS_GLOBAL_ProjectPriFileName "resources.pri")
 endif()

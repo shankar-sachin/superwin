@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SuperWin update feed (Sparkle "appcast" format, read by WinSparkle).
+
+  How shipping an update works:
+    1. Bump the version in src/Version.h and installer/SuperWin.iss, rebuild,
+       and produce a new installer/Output/SuperWin-Setup.exe.
+    2. Upload that setup.exe somewhere public (GitHub Releases, a CDN, your host).
+    3. Add a new <item> below with the new sparkle:version, the download url, and
+       (recommended) the file length in bytes and an EdDSA signature.
+    4. Publish this appcast.xml at the URL the app points to
+       (core/Updater.cpp kDefaultAppcastUrl, overridable via the
+       "update.appcastUrl" setting).
+
+  Installed copies of SuperWin poll this feed (every 24h, or via the tray's
+  "Check for updates…"); when sparkle:version is newer than the running build,
+  WinSparkle prompts the user, downloads the new setup.exe, and runs it.
+-->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>SuperWin</title>
+    <link>https://example.com/superwin/</link>
+    <description>Most recent SuperWin updates</description>
+    <language>en</language>
+
+    <item>
+      <title>SuperWin 1.3.0</title>
+      <description><![CDATA[
+        <h2>SuperWin 1.3.0</h2>
+        <ul>
+          <li>Notepad Super is now a Word-Lite editor: font family & size, bold/italic/underline/strikethrough,
+              text & highlight colors, alignment, bullet/numbered lists, undo/redo, and RTF open/save.</li>
+          <li>New Color Picker tool: full color wheel, hex/RGB with copy, and a screen eyedropper.</li>
+          <li>PowerToys-style dashboard (NavigationView + Mica), app icon, larger default window.</li>
+          <li>Volume Customizer, Clipboard++, and Diagnostics (with always-on-top mini-monitor).</li>
+        </ul>
+      ]]></description>
+      <pubDate>Sat, 30 May 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://example.com/superwin/SuperWin-Setup-1.3.0.exe"
+        sparkle:version="1.3.0"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>

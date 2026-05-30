@@ -27,3 +27,9 @@ CMakeUserPresets.json
 # Misc
 *.log
 Thumbs.db
+
+# Vendored deps: keep only the trimmed files we actually use. Guard against
+# accidentally committing a full WinSparkle release extraction again.
+*.pdb
+/third_party/winsparkle/**/WinSparkle-*/
+/third_party/winsparkle/**/3rdparty/

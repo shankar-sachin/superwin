@@ -66,17 +66,42 @@ ctest --preset msvc-release
 
 ### Build the installer
 
-Stage the Windows App SDK runtime redist into `installer\redist\` as
-`WindowsAppRuntimeInstall-x64.exe`, then:
+The app is built **self-contained** (the Windows App Runtime ships inside the app
+folder), so no runtime redist staging is required. Build the wizard with Inno Setup:
 
 ```powershell
-& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\SuperWin.iss
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\SuperWin.iss
 ```
 
-Output: `installer\Output\SuperWin-Setup.exe`.
+Output: `installer\Output\SuperWin-Setup.exe` — a per-user wizard (no UAC) with a
+clean uninstaller.
+
+## Versioning & auto-updates
+
+Current version: **1.0.0** (`src/Version.h` is the single source of truth; the exe
+carries a matching `VERSIONINFO` resource).
+
+SuperWin auto-updates via **WinSparkle**. The installed app polls an *appcast* feed
+(every 24h, or on demand via the tray's **Check for updates…**); when a newer
+`sparkle:version` is published it prompts the user, downloads the new
+`SuperWin-Setup.exe`, and runs it to upgrade in place.
+
+**To ship an update:**
+1. Bump the version in `src/Version.h` **and** `installer/SuperWin.iss`.
+2. Rebuild and produce a new `installer/Output/SuperWin-Setup.exe`.
+3. Upload that setup.exe to your host (GitHub Releases, CDN, …).
+4. Add a new `<item>` to `installer/appcast.xml` (new `sparkle:version` + download
+   URL) and publish it at the appcast URL the app points to.
+
+The appcast URL defaults to `kDefaultAppcastUrl` in `src/core/Updater.cpp` and is
+overridable at runtime via the `update.appcastUrl` setting. See
+`installer/appcast.xml` for the feed format. (For production, sign updates with an
+EdDSA key via `win_sparkle_set_eddsa_*` and add `sparkle:edSignature` to the feed.)
 
 ## Status
 
-Milestone 0 (build scaffolding + tray-resident blank window) is the first target; the
-four modules are implemented in the order Volume → Clipboard → Diagnostics → Notepad.
-See the task list / plan for progress.
+**v1.0.0 foundation complete and verified:** CMake build, passing unit tests
+(`superwin_core`), a working tray host, a styled WinUI 3 dashboard shell
+(self-contained, code-first), WinSparkle auto-updates, and a per-user Inno Setup
+wizard. The four module UIs are implemented next, in the order
+Volume → Clipboard → Diagnostics → Notepad. See the plan for details.
