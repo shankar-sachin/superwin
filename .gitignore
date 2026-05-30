@@ -1,0 +1,29 @@
+# Build output
+/build/
+/out/
+/packages/
+*.user
+*.aps
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+
+# Generated C++/WinRT projection
+/Generated Files/
+**/Generated Files/
+
+# Installer output
+/installer/Output/
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.sdf
+*.opensdf
+
+# Misc
+*.log
+Thumbs.db
