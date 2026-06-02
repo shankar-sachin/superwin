@@ -6,8 +6,15 @@
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.UI.h>
+#include <winrt/Windows.UI.Text.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Microsoft.UI.Windowing.h>
+
+#include "app/AppHost.h"
+#include "core/Settings.h"
+#include "core/Strings.h"
 
 namespace winrt {
 using namespace winrt::Microsoft::UI::Xaml;
@@ -37,6 +44,44 @@ winrt::NavigationViewItem MakeNavItem(winrt::hstring text, wchar_t glyph,
 
 }  // namespace
 
+// Slim, transparent title row that the Mica surface shows through. Carries the
+// app icon + title on the left; the right ~140px is left clear for the system
+// caption buttons (min / restore / close), which are drawn transparently on top.
+winrt::Grid Shell::BuildTitleBar() {
+    auto bar = winrt::Grid();
+    bar.Height(40);
+    bar.Background(nullptr);  // let Mica through
+
+    auto content = winrt::Microsoft::UI::Xaml::Controls::StackPanel();
+    content.Orientation(winrt::Orientation::Horizontal);
+    content.Spacing(8);
+    content.VerticalAlignment(winrt::VerticalAlignment::Center);
+    content.Margin(winrt::Thickness{14, 0, 0, 0});
+
+    wchar_t exePath[MAX_PATH];
+    ::GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    auto ico = std::filesystem::path(exePath).parent_path() / L"SuperWin.ico";
+    if (std::filesystem::exists(ico)) {
+        winrt::Microsoft::UI::Xaml::Controls::Image img;
+        winrt::Microsoft::UI::Xaml::Media::Imaging::BitmapImage bmp;
+        bmp.UriSource(winrt::Windows::Foundation::Uri(winrt::hstring(ico.wstring())));
+        img.Source(bmp);
+        img.Width(16);
+        img.Height(16);
+        content.Children().Append(img);
+    }
+
+    auto title = winrt::Microsoft::UI::Xaml::Controls::TextBlock();
+    title.Text(L"SuperWin");
+    title.FontSize(12.5);
+    title.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
+    title.VerticalAlignment(winrt::VerticalAlignment::Center);
+    content.Children().Append(title);
+
+    bar.Children().Append(content);
+    return bar;
+}
+
 winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     window_ = winrt::Window();
     window_.Title(L"SuperWin");
@@ -51,14 +96,23 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     }
     window_.AppWindow().Resize({1120, 760});
 
+    // Blend the title bar into the app: extend content underneath, draw the
+    // caption buttons transparently over Mica.
+    window_.ExtendsContentIntoTitleBar(true);
+    if (auto tb = window_.AppWindow().TitleBar()) {
+        const winrt::Windows::UI::Color clear{0, 0, 0, 0};
+        tb.ButtonBackgroundColor(clear);
+        tb.ButtonInactiveBackgroundColor(clear);
+    }
+
     nav_ = winrt::NavigationView();
     nav_.PaneDisplayMode(winrt::NavigationViewPaneDisplayMode::Left);
-    nav_.IsSettingsVisible(false);
+    nav_.IsSettingsVisible(true);
     nav_.IsBackButtonVisible(winrt::NavigationViewBackButtonVisible::Collapsed);
     nav_.PaneTitle(L"SuperWin");
     nav_.IsPaneToggleButtonVisible(true);
 
-    // Home, then the four modules. Glyphs are Segoe Fluent Icons codepoints.
+    // Home, then the modules. Glyphs are Segoe Fluent Icons codepoints.
     nav_.MenuItems().Append(MakeNavItem(L"Home", 0xE80F, L"home"));
 
     auto modulesHeader = winrt::NavigationViewItemHeader();
@@ -66,14 +120,22 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     nav_.MenuItems().Append(modulesHeader);
 
     nav_.MenuItems().Append(MakeNavItem(L"Volume Customizer", 0xE767, L"volume"));
-    nav_.MenuItems().Append(MakeNavItem(L"Clipboard++",       0xE8C8, L"clipboard"));
+    nav_.MenuItems().Append(MakeNavItem(L"Clipboard",         0xE8C8, L"clipboard"));
     nav_.MenuItems().Append(MakeNavItem(L"Diagnostics",       0xE9D9, L"diagnostics"));
     nav_.MenuItems().Append(MakeNavItem(L"Notepad Super",     0xE70F, L"notepad"));
     nav_.MenuItems().Append(MakeNavItem(L"Color Picker",      0xE790, L"colorpicker"));
+    nav_.MenuItems().Append(MakeNavItem(L"Keep Awake",        0xE945, L"keepawake"));
+    nav_.MenuItems().Append(MakeNavItem(L"Hash & Checksum",   0xE72E, L"hash"));
+    nav_.MenuItems().Append(MakeNavItem(L"Network Info",      0xE968, L"netinfo"));
+    nav_.MenuItems().Append(MakeNavItem(L"Unit Converter",    0xE8EF, L"convert"));
 
     nav_.SelectionChanged(
         [this](winrt::NavigationView const&,
                winrt::NavigationViewSelectionChangedEventArgs const& args) {
+            if (args.IsSettingsSelected()) {
+                OnSelectionChanged(L"settings");
+                return;
+            }
             if (auto item = args.SelectedItem().try_as<winrt::NavigationViewItem>()) {
                 if (auto tag = item.Tag()) {
                     OnSelectionChanged(winrt::unbox_value<winrt::hstring>(tag));
@@ -81,11 +143,33 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
             }
         });
 
-    window_.Content(nav_);
+    // Two-row root: blended title bar on top, navigation below.
+    auto titleBar = BuildTitleBar();
+    window_.SetTitleBar(titleBar);
 
-    // Start on Home.
+    root_ = winrt::Grid();
+    auto r0 = winrt::RowDefinition(); r0.Height(winrt::GridLengthHelper::Auto());
+    auto r1 = winrt::RowDefinition(); r1.Height(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+    root_.RowDefinitions().Append(r0);
+    root_.RowDefinitions().Append(r1);
+    winrt::Grid::SetRow(titleBar, 0);
+    winrt::Grid::SetRow(nav_, 1);
+    root_.Children().Append(titleBar);
+    root_.Children().Append(nav_);
+    window_.Content(root_);
+
+    // Apply the saved theme, then start on Home.
+    SetTheme(winrt::hstring(Utf8ToWide(
+        Settings::Instance().GetString("ui.theme", "system"))));
     nav_.SelectedItem(nav_.MenuItems().GetAt(0));
     return window_;
+}
+
+void Shell::SetTheme(winrt::hstring mode) {
+    winrt::ElementTheme theme = winrt::ElementTheme::Default;
+    if (mode == L"light") theme = winrt::ElementTheme::Light;
+    else if (mode == L"dark") theme = winrt::ElementTheme::Dark;
+    if (root_) root_.RequestedTheme(theme);
 }
 
 IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
@@ -104,6 +188,16 @@ IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
         page = MakeNotepadPage();
     } else if (tag == L"colorpicker") {
         page = MakeColorPickerPage();
+    } else if (tag == L"keepawake") {
+        page = MakeKeepAwakePage();
+    } else if (tag == L"hash") {
+        page = MakeHashPage();
+    } else if (tag == L"netinfo") {
+        page = MakeNetInfoPage();
+    } else if (tag == L"convert") {
+        page = MakeConvertPage();
+    } else if (tag == L"settings") {
+        page = MakeSettingsPage(this, host_);
     }
     if (!page) return nullptr;
     IModulePage* raw = page.get();

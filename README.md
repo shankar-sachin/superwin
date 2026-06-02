@@ -1,32 +1,49 @@
 # SuperWin
 
-A Windows desktop multi-tool (C++ / C++/WinRT, WinUI 3) that lives in the system
-tray and bundles four utilities:
+A Windows desktop multi-tool (C++ / C++/WinRT, WinUI 3) with a blended, custom
+title bar and a built-in **Settings** page. It bundles:
 
+- **Volume Customizer** — per-app and master volume in exact percent and decibels.
+- **Clipboard** — process-wide clipboard history with a global quick-picker
+  (`Win+Shift+V`): search, pinned items, keyboard navigation, and auto-paste back
+  into the app you were using.
 - **Diagnostics + Mini-monitor** — CPU/GPU/RAM/disk info and a live, always-on-top
   mini-monitor window.
-- **Clipboard++** — clipboard history with a global hotkey picker (`Win+Shift+V`).
 - **Notepad Super** — a "Word Lite" rich-text editor (WinUI `RichEditBox`).
-- **Volume Customizer** — per-app and master volume in exact percent and decibels.
+- **Color Picker** — pick any on-screen color; copy hex/RGB.
+- **Keep Awake** — stop sleep/screen-off, optionally for a fixed duration.
+- **Hash & Checksum** — MD5 / SHA-1 / SHA-256 of text or files (CNG/BCrypt).
+- **Network Info** — adapters, IPv4/IPv6, MAC, and a quick ping.
+- **Unit Converter** — length/mass/temperature/data-size units and number bases.
 
 ## Architecture
 
-A single `SuperWin.exe` process: a tray icon + a tabbed dashboard, with Clipboard++
-and the mini-monitor running as background features. The UI is built **code-first in
-C++/WinRT** (no XAML markup files), which keeps the CMake build free of the XAML
-compiler. See `plan` notes and source comments for the per-module Windows-API design.
+A single `SuperWin.exe` process hosting a code-first WinUI 3 dashboard
+(`NavigationView` shell). An `AppHost` owns a hidden Win32 message window on the UI
+thread that registers the global `Win+Shift+V` hotkey and listens for OS clipboard
+changes (`AddClipboardFormatListener`), feeding a **process-wide** `SharedClipStore`
+for the whole session. The UI is built **code-first in C++/WinRT** (no XAML markup
+files), which keeps the CMake build free of the XAML compiler.
 
 ```
 src/
-  main.cpp                  WinMain: bootstrap, single-instance, tray, hotkeys
+  main.cpp                  WinMain / WinUI App: bootstrap, single-instance, AppHost
+  app/
+    Shell                   NavigationView shell + blended (extended) title bar
+    AppHost                 hidden Win32 host: global hotkey + clipboard listener
+    HomePage, SettingsPage  dashboard home tiles + Settings (theme, clipboard, etc.)
   core/                     Settings, SingleInstance, Hotkeys, TrayIcon, Autostart
-  app/                      App, MainWindow (NavigationView shell), Theme
   modules/
-    diagnostics/            HardwareProbe (WMI/DXGI/PDH), DiagPage, MiniMonitor
-    clipboard/              ClipWatcher, ClipStore, ClipPicker, ClipPage
-    notepad/                EditorPage (RichEditBox), DocumentIO
     volume/                 AudioSessions (WASAPI), VolumeMath, VolumePage
-tests/                      Catch2 unit tests (VolumeMath, ClipStore)
+    clipboard/              ClipStore, ClipText, ClipPage, ClipPicker (quick picker)
+    diagnostics/            HardwareProbe (WMI/DXGI/PDH), DiagPage, MiniMonitor
+    notepad/                EditorPage (RichEditBox)
+    colorpicker/            ColorPickerPage
+    keepawake/              KeepAwakePage (SetThreadExecutionState)
+    hash/                   HashLogic (CNG/BCrypt), HashPage
+    netinfo/                NetInfoLogic (IP Helper/Winsock), NetInfoPage
+    convert/                ConvertLogic, ConvertPage
+tests/                      Catch2 unit tests (VolumeMath, ClipStore, HashLogic, ConvertLogic)
 installer/SuperWin.iss      Inno Setup wizard script
 ```
 
@@ -78,11 +95,11 @@ clean uninstaller.
 
 ## Versioning & auto-updates
 
-Current version: **1.0.0** (`src/Version.h` is the single source of truth; the exe
+Current version: **2.0.0** (`src/Version.h` is the single source of truth; the exe
 carries a matching `VERSIONINFO` resource).
 
 SuperWin auto-updates via **WinSparkle**. The installed app polls an *appcast* feed
-(every 24h, or on demand via the tray's **Check for updates…**); when a newer
+(every 24h, or on demand via **Settings → Check for updates**); when a newer
 `sparkle:version` is published it prompts the user, downloads the new
 `SuperWin-Setup.exe`, and runs it to upgrade in place.
 
@@ -100,8 +117,9 @@ EdDSA key via `win_sparkle_set_eddsa_*` and add `sparkle:edSignature` to the fee
 
 ## Status
 
-**v1.0.0 foundation complete and verified:** CMake build, passing unit tests
-(`superwin_core`), a working tray host, a styled WinUI 3 dashboard shell
-(self-contained, code-first), WinSparkle auto-updates, and a per-user Inno Setup
-wizard. The four module UIs are implemented next, in the order
-Volume → Clipboard → Diagnostics → Notepad. See the plan for details.
+**v2.0.0:** Nine tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
+Keep Awake, Hash & Checksum, Network Info, Unit Converter), a blended custom title
+bar, a Settings page (theme, startup, clipboard options), and a working
+`Win+Shift+V` quick-picker backed by process-wide clipboard capture. Self-contained,
+code-first WinUI 3, WinSparkle auto-updates, per-user Inno Setup wizard, and passing
+Catch2 unit tests.

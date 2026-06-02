@@ -43,6 +43,7 @@ uint64_t ClipStore::AddText(std::string utf8) {
         items_.erase(existing);
         items_.push_front(promoted);
         Save();
+        NotifyChanged();
         return promoted.id;
     }
 
@@ -54,6 +55,7 @@ uint64_t ClipStore::AddText(std::string utf8) {
     items_.push_front(item);
     EvictToCapacity();
     Save();
+    NotifyChanged();
     return item.id;
 }
 
@@ -62,6 +64,7 @@ bool ClipStore::Pin(uint64_t id, bool pinned) {
         if (c.id == id) {
             c.pinned = pinned;
             Save();
+            NotifyChanged();
             return true;
         }
     }
@@ -74,6 +77,7 @@ bool ClipStore::Remove(uint64_t id) {
     if (it == items_.end()) return false;
     items_.erase(it);
     Save();
+    NotifyChanged();
     return true;
 }
 
@@ -85,6 +89,7 @@ void ClipStore::Clear(bool includePinned) {
             [](const ClipItem& c) { return !c.pinned; }), items_.end());
     }
     Save();
+    NotifyChanged();
 }
 
 std::vector<ClipItem> ClipStore::Items(const std::string& filter) const {
@@ -106,6 +111,37 @@ void ClipStore::SetMaxItems(int maxItems) {
     maxItems_ = std::max(1, maxItems);
     EvictToCapacity();
     Save();
+    NotifyChanged();
+}
+
+ClipStore::ChangeToken ClipStore::Subscribe(std::function<void()> cb) {
+    const ChangeToken token = nextToken_++;
+    subs_.emplace_back(token, std::move(cb));
+    return token;
+}
+
+void ClipStore::Unsubscribe(ChangeToken token) {
+    subs_.erase(std::remove_if(subs_.begin(), subs_.end(),
+        [&](const auto& s) { return s.first == token; }), subs_.end());
+}
+
+void ClipStore::NotifyChanged() {
+    // Copy first: a callback may unsubscribe (or be the last owner of an object
+    // that does), which would otherwise invalidate the iteration.
+    auto snapshot = subs_;
+    for (auto& [token, cb] : snapshot) {
+        if (cb) cb();
+    }
+}
+
+ClipStore& SharedClipStore() {
+    static ClipStore store = [] {
+        const int maxItems = Settings::Instance().GetInt("clipboard.maxItems", 50);
+        ClipStore s(maxItems);
+        s.Load();
+        return s;
+    }();
+    return store;
 }
 
 void ClipStore::EvictToCapacity() {

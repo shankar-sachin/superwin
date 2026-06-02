@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <deque>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace superwin {
@@ -50,13 +52,29 @@ public:
     void Load();
     void Save() const;
 
+    // Lightweight change notification so the history page and the quick picker
+    // can refresh when a clip is captured/pinned/removed. Callbacks fire on the
+    // thread that mutated the store (the UI thread in the app). UI-free by
+    // design: the callback is a plain std::function<void()>.
+    using ChangeToken = uint64_t;
+    ChangeToken Subscribe(std::function<void()> cb);
+    void        Unsubscribe(ChangeToken token);
+
 private:
     void EvictToCapacity();
+    void NotifyChanged();
 
     std::deque<ClipItem>  items_;  // front == most recent
     int                   maxItems_;
     uint64_t              nextId_ = 1;
     std::filesystem::path path_;
+
+    ChangeToken nextToken_ = 1;
+    std::vector<std::pair<ChangeToken, std::function<void()>>> subs_;
 };
+
+// Process-wide history shared by the watcher (AppHost), the Clipboard page and
+// the quick picker. Loaded from disk and sized from settings on first use.
+ClipStore& SharedClipStore();
 
 }  // namespace superwin

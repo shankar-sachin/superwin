@@ -24,6 +24,28 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.0.0</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.0.0</h2>
+        <ul>
+          <li>Blended, custom title bar that flows into the app's Mica surface.</li>
+          <li>New Settings page: app theme (light/dark/system), launch-at-sign-in, and clipboard options.</li>
+          <li>Clipboard (formerly Clipboard++): history is now captured process-wide, and the
+              <b>Win+Shift+V</b> quick-picker works — search, pinned items, keyboard navigation,
+              and auto-paste back into your app.</li>
+          <li>New tools: Keep Awake, Hash &amp; Checksum (MD5/SHA-1/SHA-256), Network Info, and Unit Converter.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://example.com/superwin/SuperWin-Setup-2.0.0.exe"
+        sparkle:version="2.0.0"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 1.3.0</title>
       <description><![CDATA[
         <h2>SuperWin 1.3.0</h2>

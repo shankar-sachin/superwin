@@ -61,13 +61,22 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
     {
         auto section = ui::VStack(10);
         section.Children().Append(ui::Text(L"Quick access", 15, true));
-        auto row = ui::HStack(12);
-        row.Children().Append(Tile(L"Volume\nCustomizer", 0xE767, L"volume", navigate));
-        row.Children().Append(Tile(L"Clipboard++", 0xE8C8, L"clipboard", navigate));
-        row.Children().Append(Tile(L"Diagnostics", 0xE9D9, L"diagnostics", navigate));
-        row.Children().Append(Tile(L"Notepad\nSuper", 0xE70F, L"notepad", navigate));
-        row.Children().Append(Tile(L"Color\nPicker", 0xE790, L"colorpicker", navigate));
-        section.Children().Append(ui::Card(row));
+        // Two rows of tiles for the wider tool set.
+        auto row1 = ui::HStack(12);
+        row1.Children().Append(Tile(L"Volume\nCustomizer", 0xE767, L"volume", navigate));
+        row1.Children().Append(Tile(L"Clipboard", 0xE8C8, L"clipboard", navigate));
+        row1.Children().Append(Tile(L"Diagnostics", 0xE9D9, L"diagnostics", navigate));
+        row1.Children().Append(Tile(L"Notepad\nSuper", 0xE70F, L"notepad", navigate));
+        row1.Children().Append(Tile(L"Color\nPicker", 0xE790, L"colorpicker", navigate));
+        auto row2 = ui::HStack(12);
+        row2.Children().Append(Tile(L"Keep\nAwake", 0xE945, L"keepawake", navigate));
+        row2.Children().Append(Tile(L"Hash &\nChecksum", 0xE72E, L"hash", navigate));
+        row2.Children().Append(Tile(L"Network\nInfo", 0xE968, L"netinfo", navigate));
+        row2.Children().Append(Tile(L"Unit\nConverter", 0xE8EF, L"convert", navigate));
+        auto rows = ui::VStack(12);
+        rows.Children().Append(row1);
+        rows.Children().Append(row2);
+        section.Children().Append(ui::Card(rows));
         body.Children().Append(section);
     }
 

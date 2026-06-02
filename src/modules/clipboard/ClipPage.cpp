@@ -2,11 +2,11 @@
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
 #include "app/Ui.h"
 #include "core/Strings.h"
 #include "modules/clipboard/ClipStore.h"
+#include "modules/clipboard/ClipText.h"
 
 namespace winrt {
 using namespace winrt::Windows::Foundation;
@@ -17,43 +17,16 @@ using namespace winrt::Microsoft::UI::Xaml::Controls;
 namespace superwin {
 namespace {
 
-std::wstring ReadClipboardText() {
-    if (!::OpenClipboard(nullptr)) return {};
-    std::wstring text;
-    if (HANDLE h = ::GetClipboardData(CF_UNICODETEXT)) {
-        if (auto* p = static_cast<const wchar_t*>(::GlobalLock(h))) {
-            text = p;
-            ::GlobalUnlock(h);
-        }
-    }
-    ::CloseClipboard();
-    return text;
-}
-
-void WriteClipboardText(const std::wstring& s) {
-    if (!::OpenClipboard(nullptr)) return;
-    ::EmptyClipboard();
-    const size_t bytes = (s.size() + 1) * sizeof(wchar_t);
-    if (HGLOBAL h = ::GlobalAlloc(GMEM_MOVEABLE, bytes)) {
-        std::memcpy(::GlobalLock(h), s.c_str(), bytes);
-        ::GlobalUnlock(h);
-        ::SetClipboardData(CF_UNICODETEXT, h);
-    }
-    ::CloseClipboard();
-}
-
 winrt::hstring Preview(const std::string& utf8) {
     std::wstring w = Utf8ToWide(utf8);
     for (auto& c : w) if (c == L'\r' || c == L'\n' || c == L'\t') c = L' ';
-    if (w.size() > 100) w = w.substr(0, 100) + L"…";
+    if (w.size() > 100) w = w.substr(0, 100) + L"\x2026";
     return winrt::hstring(w);
 }
 
 class ClipPage : public IModulePage {
 public:
     ClipPage() {
-        store_.Load();
-
         search_ = winrt::TextBox();
         search_.PlaceholderText(L"Search clipboard history");
         search_.TextChanged([this](winrt::IInspectable const&, winrt::IInspectable const&) { RefreshList(); });
@@ -63,21 +36,15 @@ public:
         auto body = ui::VStack(14);
         body.Children().Append(search_);
         body.Children().Append(list_);
-        root_ = ui::Page(L"Clipboard++", body);
+        root_ = ui::Page(L"Clipboard", body);
 
-        // Capture every clipboard change (no host window needed).
-        token_ = winrt::Windows::ApplicationModel::DataTransfer::Clipboard::ContentChanged(
-            [this](winrt::IInspectable const&, winrt::IInspectable const&) {
-                std::wstring text = ReadClipboardText();
-                if (!text.empty()) {
-                    store_.AddText(WideToUtf8(text));
-                    RefreshList();
-                }
-            });
+        // Refresh whenever the shared store changes (the AppHost watcher captures
+        // clips process-wide, even while this page is closed).
+        token_ = SharedClipStore().Subscribe([this] { RefreshList(); });
     }
 
     ~ClipPage() override {
-        winrt::Windows::ApplicationModel::DataTransfer::Clipboard::ContentChanged(token_);
+        SharedClipStore().Unsubscribe(token_);
     }
 
     winrt::Microsoft::UI::Xaml::UIElement Root() override { return root_; }
@@ -87,9 +54,9 @@ private:
     void RefreshList() {
         list_.Children().Clear();
         const std::string filter = WideToUtf8(std::wstring(search_.Text()));
-        auto items = store_.Items(filter);
+        auto items = SharedClipStore().Items(filter);
         if (items.empty()) {
-            list_.Children().Append(ui::Caption(L"Nothing here yet — copy some text."));
+            list_.Children().Append(ui::Caption(L"Nothing here yet \x2014 copy some text, or press Win+Shift+V anywhere."));
             return;
         }
         for (const auto& item : items) list_.Children().Append(BuildCard(item));
@@ -109,20 +76,17 @@ private:
             WriteClipboardText(Utf8ToWide(text));
         });
         auto pin = MakeIconButton(item.pinned ? 0xE77A : 0xE718, item.pinned ? L"Unpin" : L"Pin");
-        pin.Click([this, id, pinned = item.pinned](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
-            store_.Pin(id, !pinned);
-            RefreshList();
+        pin.Click([id, pinned = item.pinned](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+            SharedClipStore().Pin(id, !pinned);
         });
         auto del = MakeIconButton(0xE74D, L"Delete");
-        del.Click([this, id](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
-            store_.Remove(id);
-            RefreshList();
+        del.Click([id](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+            SharedClipStore().Remove(id);
         });
 
         auto row = ui::HStack(10);
         row.VerticalAlignment(winrt::VerticalAlignment::Center);
         row.Children().Append(preview);
-        auto spacer = winrt::Microsoft::UI::Xaml::Controls::StackPanel();
         row.Children().Append(copy);
         row.Children().Append(pin);
         row.Children().Append(del);
@@ -139,11 +103,10 @@ private:
         return b;
     }
 
-    ClipStore store_{50};
     winrt::Microsoft::UI::Xaml::Controls::TextBox search_{nullptr};
     winrt::Microsoft::UI::Xaml::Controls::StackPanel list_{nullptr};
     winrt::Microsoft::UI::Xaml::UIElement root_{nullptr};
-    winrt::event_token token_{};
+    ClipStore::ChangeToken token_ = 0;
 };
 
 }  // namespace

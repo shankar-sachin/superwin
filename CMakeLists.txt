@@ -29,9 +29,14 @@ add_library(superwin_core STATIC
     src/core/Autostart.cpp
     src/modules/volume/VolumeMath.cpp
     src/modules/clipboard/ClipStore.cpp
+    src/modules/clipboard/ClipText.cpp
+    src/modules/hash/HashLogic.cpp
+    src/modules/netinfo/NetInfoLogic.cpp
+    src/modules/convert/ConvertLogic.cpp
 )
 target_include_directories(superwin_core PUBLIC src)
-target_link_libraries(superwin_core PUBLIC nlohmann_json Shell32 Ole32 User32)
+target_link_libraries(superwin_core PUBLIC
+    nlohmann_json Shell32 Ole32 User32 bcrypt iphlpapi ws2_32)
 
 # ---------------------------------------------------------------------------
 # Unit tests (Catch2 via FetchContent -- not available on NuGet).
@@ -48,6 +53,8 @@ if (SUPERWIN_BUILD_TESTS)
     add_executable(SuperWin_tests
         tests/VolumeMathTests.cpp
         tests/ClipStoreTests.cpp
+        tests/HashLogicTests.cpp
+        tests/ConvertLogicTests.cpp
     )
     target_link_libraries(SuperWin_tests PRIVATE superwin_core Catch2::Catch2WithMain)
     # Catch2's bundled entry point is wmain(); steer the CRT startup to match so
@@ -100,13 +107,20 @@ if (SUPERWIN_ENABLE_WINUI)
     target_sources(SuperWin PRIVATE
         src/app/Shell.cpp
         src/app/HomePage.cpp
+        src/app/SettingsPage.cpp
+        src/app/AppHost.cpp
         src/modules/volume/VolumePage.cpp
         src/modules/volume/AudioSessions.cpp
         src/modules/clipboard/ClipPage.cpp
+        src/modules/clipboard/ClipPicker.cpp
         src/modules/diagnostics/DiagPage.cpp
         src/modules/diagnostics/HardwareProbe.cpp
         src/modules/notepad/EditorPage.cpp
         src/modules/colorpicker/ColorPickerPage.cpp
+        src/modules/keepawake/KeepAwakePage.cpp
+        src/modules/hash/HashPage.cpp
+        src/modules/netinfo/NetInfoPage.cpp
+        src/modules/convert/ConvertPage.cpp
     )
     set_property(TARGET SuperWin PROPERTY VS_PACKAGE_REFERENCES
         "Microsoft.Windows.CppWinRT_2.0.250303.1"

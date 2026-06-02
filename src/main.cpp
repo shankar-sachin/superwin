@@ -44,6 +44,7 @@ using namespace superwin;
 #include <memory>
 #include <string>
 
+#include "app/AppHost.h"
 #include "app/Shell.h"
 
 namespace winrt {
@@ -77,6 +78,11 @@ struct App : winrt::ApplicationT<App, winrt::IXamlMetadataProvider> {
         shell_ = std::make_unique<Shell>();
         auto window = shell_->Create();
         window.Activate();
+
+        // Win32 backbone on the UI thread: global Win+Shift+V hotkey + a
+        // clipboard listener feeding the shared history for the whole session.
+        host_ = std::make_unique<AppHost>();
+        shell_->SetAppHost(host_.get());
     }
 
     // --- IXamlMetadataProvider (delegated to the WinUI controls provider) ---
@@ -97,6 +103,7 @@ private:
     }
 
     std::unique_ptr<Shell> shell_;
+    std::unique_ptr<AppHost> host_;
     winrt::XamlControlsXamlMetaDataProvider provider_{nullptr};
 };
 
@@ -217,7 +224,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR /*cmdLine*/, int) {
         Settings::Instance().GetString("clipboard.hotkey", "Win+Shift+V");
     ctx.hotkeys->Register("clipboard", ParseHotkey(clipHotkey),
         [&ctx] {
-            if (ctx.tray) ctx.tray->ShowBalloon(L"Clipboard++", L"Picker arrives in a later milestone.");
+            if (ctx.tray) ctx.tray->ShowBalloon(L"Clipboard", L"Picker arrives in a later milestone.");
         });
 
     ::SetWindowLongPtrW(host, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&ctx));

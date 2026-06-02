@@ -11,6 +11,8 @@
 
 namespace superwin {
 
+class AppHost;
+
 // Every page (Home + modules) implements this. Root() returns the element shown
 // in the content frame; OnShown/OnHidden bracket visibility so pages can start
 // and stop live work (timers, audio enumeration, ...).
@@ -27,8 +29,15 @@ std::unique_ptr<IModulePage> MakeClipboardPage();
 std::unique_ptr<IModulePage> MakeDiagnosticsPage();
 std::unique_ptr<IModulePage> MakeNotepadPage();
 std::unique_ptr<IModulePage> MakeColorPickerPage();
+std::unique_ptr<IModulePage> MakeKeepAwakePage();
+std::unique_ptr<IModulePage> MakeHashPage();
+std::unique_ptr<IModulePage> MakeNetInfoPage();
+std::unique_ptr<IModulePage> MakeConvertPage();
 // Home gets a navigate callback so its tiles can jump to a section by tag.
 std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> navigate);
+// Settings needs the shell (theme, navigation) and host (hotkey re-registration).
+class Shell;
+std::unique_ptr<IModulePage> MakeSettingsPage(Shell* shell, AppHost* host);
 
 class Shell {
 public:
@@ -40,14 +49,23 @@ public:
 
     winrt::Microsoft::UI::Xaml::Window Window() const { return window_; }
 
+    // Give the settings page access to the host for hotkey re-registration.
+    void SetAppHost(AppHost* host) { host_ = host; }
+
+    // Apply a theme to the whole window ("light" / "dark" / "system").
+    void SetTheme(winrt::hstring mode);
+
 private:
     IModulePage* EnsurePage(winrt::hstring const& tag);
     void OnSelectionChanged(winrt::hstring tag);
+    winrt::Microsoft::UI::Xaml::Controls::Grid BuildTitleBar();
 
     winrt::Microsoft::UI::Xaml::Window window_{nullptr};
     winrt::Microsoft::UI::Xaml::Controls::NavigationView nav_{nullptr};
+    winrt::Microsoft::UI::Xaml::Controls::Grid root_{nullptr};
     winrt::Microsoft::UI::Xaml::Controls::Frame contentHost_{nullptr};
 
+    AppHost* host_ = nullptr;
     std::unordered_map<winrt::hstring, std::unique_ptr<IModulePage>> pages_;
     IModulePage* current_ = nullptr;
 };
