@@ -24,6 +24,9 @@ CMakeUserPresets.json
 *.sdf
 *.opensdf
 
+# Release notes
+/RELEASE_2.0.0.md
+
 # Misc
 *.log
 Thumbs.db
