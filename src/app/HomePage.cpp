@@ -73,9 +73,13 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
         row2.Children().Append(Tile(L"Hash &\nChecksum", 0xE72E, L"hash", navigate));
         row2.Children().Append(Tile(L"Network\nInfo", 0xE968, L"netinfo", navigate));
         row2.Children().Append(Tile(L"Unit\nConverter", 0xE8EF, L"convert", navigate));
+        auto row3 = ui::HStack(12);
+        row3.Children().Append(Tile(L"Password\nGenerator", 0xE8D7, L"password", navigate));
+        row3.Children().Append(Tile(L"Text\nTools", 0xE8D2, L"text", navigate));
         auto rows = ui::VStack(12);
         rows.Children().Append(row1);
         rows.Children().Append(row2);
+        rows.Children().Append(row3);
         section.Children().Append(ui::Card(rows));
         body.Children().Append(section);
     }

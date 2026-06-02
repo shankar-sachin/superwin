@@ -128,6 +128,8 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     nav_.MenuItems().Append(MakeNavItem(L"Hash & Checksum",   0xE72E, L"hash"));
     nav_.MenuItems().Append(MakeNavItem(L"Network Info",      0xE968, L"netinfo"));
     nav_.MenuItems().Append(MakeNavItem(L"Unit Converter",    0xE8EF, L"convert"));
+    nav_.MenuItems().Append(MakeNavItem(L"Password Generator", 0xE8D7, L"password"));
+    nav_.MenuItems().Append(MakeNavItem(L"Text Tools",        0xE8D2, L"text"));
 
     nav_.SelectionChanged(
         [this](winrt::NavigationView const&,
@@ -196,6 +198,10 @@ IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
         page = MakeNetInfoPage();
     } else if (tag == L"convert") {
         page = MakeConvertPage();
+    } else if (tag == L"password") {
+        page = MakePasswordPage();
+    } else if (tag == L"text") {
+        page = MakeTextPage();
     } else if (tag == L"settings") {
         page = MakeSettingsPage(this, host_);
     }

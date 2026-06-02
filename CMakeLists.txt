@@ -33,6 +33,8 @@ add_library(superwin_core STATIC
     src/modules/hash/HashLogic.cpp
     src/modules/netinfo/NetInfoLogic.cpp
     src/modules/convert/ConvertLogic.cpp
+    src/modules/password/PasswordLogic.cpp
+    src/modules/text/TextLogic.cpp
 )
 target_include_directories(superwin_core PUBLIC src)
 target_link_libraries(superwin_core PUBLIC
@@ -55,6 +57,8 @@ if (SUPERWIN_BUILD_TESTS)
         tests/ClipStoreTests.cpp
         tests/HashLogicTests.cpp
         tests/ConvertLogicTests.cpp
+        tests/PasswordLogicTests.cpp
+        tests/TextLogicTests.cpp
     )
     target_link_libraries(SuperWin_tests PRIVATE superwin_core Catch2::Catch2WithMain)
     # Catch2's bundled entry point is wmain(); steer the CRT startup to match so
@@ -121,6 +125,8 @@ if (SUPERWIN_ENABLE_WINUI)
         src/modules/hash/HashPage.cpp
         src/modules/netinfo/NetInfoPage.cpp
         src/modules/convert/ConvertPage.cpp
+        src/modules/password/PasswordPage.cpp
+        src/modules/text/TextPage.cpp
     )
     set_property(TARGET SuperWin PROPERTY VS_PACKAGE_REFERENCES
         "Microsoft.Windows.CppWinRT_2.0.250303.1"

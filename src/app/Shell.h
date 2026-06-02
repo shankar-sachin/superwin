@@ -33,6 +33,8 @@ std::unique_ptr<IModulePage> MakeKeepAwakePage();
 std::unique_ptr<IModulePage> MakeHashPage();
 std::unique_ptr<IModulePage> MakeNetInfoPage();
 std::unique_ptr<IModulePage> MakeConvertPage();
+std::unique_ptr<IModulePage> MakePasswordPage();
+std::unique_ptr<IModulePage> MakeTextPage();
 // Home gets a navigate callback so its tiles can jump to a section by tag.
 std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> navigate);
 // Settings needs the shell (theme, navigation) and host (hotkey re-registration).
