@@ -8,7 +8,7 @@ self-contained deployment, and automatic updates.
 > **Windows 10/11, 64-bit.** Ships self-contained (the Windows App Runtime is bundled),
 > so there is **no separate runtime to install**.
 
-![SuperWin demo](superwin_demo.gif)
+![SuperWin demo](media/superwin_demo.gif)
 
 🌐 **Landing page:** <https://shankar-sachin.github.io/superwin/>
 

@@ -104,7 +104,7 @@ add_custom_command(TARGET SuperWin POST_BUILD
         "${WINSPARKLE_DIR}/x64/WinSparkle.dll"
         "$<TARGET_FILE_DIR:SuperWin>/WinSparkle.dll"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/SuperWin.ico"
+        "${CMAKE_SOURCE_DIR}/assets/SuperWin.ico"
         "$<TARGET_FILE_DIR:SuperWin>/SuperWin.ico"
     COMMENT "Deploying WinSparkle.dll + app icon next to SuperWin.exe")
 

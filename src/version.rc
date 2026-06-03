@@ -4,8 +4,8 @@
 #include "Version.h"
 
 // Application icon: the lowest-numbered ICON resource becomes the exe's icon in
-// Explorer / the taskbar. The .ico lives at the repo root.
-1 ICON "..\\SuperWin.ico"
+// Explorer / the taskbar. The .ico lives under assets/ at the repo root.
+1 ICON "..\\assets\\SuperWin.ico"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION    SUPERWIN_VERSION_RC
