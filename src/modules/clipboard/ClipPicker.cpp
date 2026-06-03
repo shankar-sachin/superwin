@@ -4,6 +4,8 @@
 #include <chrono>
 #include <string>
 
+#include <microsoft.ui.xaml.window.h>  // IWindowNative (get the picker's HWND)
+
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.System.h>
@@ -42,6 +44,23 @@ winrt::ElementTheme ThemeFromSettings() {
     if (t == "light") return winrt::ElementTheme::Light;
     if (t == "dark")  return winrt::ElementTheme::Dark;
     return winrt::ElementTheme::Default;
+}
+
+// Reliably bring a window to the foreground even when our process is in the
+// background (a global hotkey spawned us). Windows blocks a background process
+// from stealing focus, so we briefly attach to the current foreground thread's
+// input queue, which lifts that restriction for the duration of the call.
+void ForceForeground(HWND hwnd) {
+    if (!hwnd) return;
+    const HWND fg = ::GetForegroundWindow();
+    const DWORD fgThread = ::GetWindowThreadProcessId(fg, nullptr);
+    const DWORD myThread = ::GetCurrentThreadId();
+    const bool attached = fgThread && fgThread != myThread &&
+                          ::AttachThreadInput(myThread, fgThread, TRUE);
+    ::SetForegroundWindow(hwnd);
+    ::SetFocus(hwnd);
+    ::BringWindowToTop(hwnd);
+    if (attached) ::AttachThreadInput(myThread, fgThread, FALSE);
 }
 
 }  // namespace
@@ -119,10 +138,20 @@ void ClipPicker::Build() {
     root.Children().Append(list_);
     window_.Content(root);
 
-    // Auto-dismiss the moment focus leaves the picker.
+    // Auto-dismiss the moment focus leaves the picker. The deactivation that
+    // happens *during* the show/foreground hand-off is suppressed, otherwise the
+    // picker would hide itself the instant it appears; once it genuinely
+    // activates we arm the dismiss-on-deactivate behaviour.
     window_.Activated([this](winrt::IInspectable const&, winrt::WindowActivatedEventArgs const& e) {
-        if (e.WindowActivationState() == winrt::WindowActivationState::Deactivated) Hide();
+        if (e.WindowActivationState() == winrt::WindowActivationState::Deactivated) {
+            if (!suppressDeactivate_) Hide();
+        } else {
+            suppressDeactivate_ = false;  // a real activation -- safe to arm
+        }
     });
+
+    auto native = window_.try_as<::IWindowNative>();
+    if (native) native->get_WindowHandle(&hwnd_);
 }
 
 void ClipPicker::Populate() {
@@ -188,7 +217,10 @@ void ClipPicker::Show(HWND previousForeground) {
     }
     appWindow_.MoveAndResize({x, y, kWidth, kHeight});
 
+    // Ignore the transient deactivation while we grab the foreground.
+    suppressDeactivate_ = true;
     window_.Activate();
+    ForceForeground(hwnd_);
     search_.Focus(winrt::FocusState::Programmatic);
 }
 

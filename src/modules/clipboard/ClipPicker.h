@@ -40,8 +40,10 @@ private:
     winrt::Microsoft::UI::Xaml::DispatcherTimer      pasteTimer_{nullptr};
 
     HWND previous_ = nullptr;
+    HWND hwnd_ = nullptr;            // the picker's own native window handle
     bool autoPaste_ = true;
     bool built_ = false;
+    bool suppressDeactivate_ = false;  // ignore the deactivation during show
 };
 
 }  // namespace superwin

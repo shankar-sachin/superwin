@@ -72,8 +72,9 @@ private:
         preview.Width(420);
 
         auto copy = MakeIconButton(0xE8C8, L"Copy");
-        copy.Click([text](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+        copy.Click([text, copy](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
             WriteClipboardText(Utf8ToWide(text));
+            ui::FlashCopied(copy);
         });
         auto pin = MakeIconButton(item.pinned ? 0xE77A : 0xE718, item.pinned ? L"Unpin" : L"Pin");
         pin.Click([id, pinned = item.pinned](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {

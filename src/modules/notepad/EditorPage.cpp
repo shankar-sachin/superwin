@@ -72,12 +72,6 @@ private:
 
     void SetFont(winrt::hstring name) { auto c = Sel().CharacterFormat(); c.Name(name); Sel().CharacterFormat(c); }
     void SetSize(double pt) { auto c = Sel().CharacterFormat(); c.Size(static_cast<float>(pt)); Sel().CharacterFormat(c); }
-    void SetForeground(winrt::Windows::UI::Color color) {
-        auto c = Sel().CharacterFormat(); c.ForegroundColor(color); Sel().CharacterFormat(c);
-    }
-    void SetHighlight(winrt::Windows::UI::Color color) {
-        auto c = Sel().CharacterFormat(); c.BackgroundColor(color); Sel().CharacterFormat(c);
-    }
     void Align(winrt::ParagraphAlignment a) { auto p = Sel().ParagraphFormat(); p.Alignment(a); Sel().ParagraphFormat(p); }
     void List(winrt::MarkerType m) {
         auto p = Sel().ParagraphFormat();
@@ -89,7 +83,13 @@ private:
         winrt::FontIcon icon; icon.Glyph(winrt::hstring(&glyph, 1)); icon.FontSize(15);
         winrt::Button b; b.Content(icon);
         winrt::Controls::ToolTipService::SetToolTip(b, winrt::box_value(tip));
-        b.Click([onClick](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { onClick(); });
+        // Clicking a toolbar button moves focus off the editor, which leaves its
+        // selection inactive. Run the command, then hand focus back so the user can
+        // keep typing/formatting where they left off.
+        b.Click([this, onClick](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+            onClick();
+            editor_.Focus(winrt::FocusState::Programmatic);
+        });
         return b;
     }
 
@@ -98,13 +98,57 @@ private:
         winrt::Button b; b.Content(icon);
         winrt::Controls::ToolTipService::SetToolTip(b, winrt::box_value(tip));
 
+        // The selection range is captured when the flyout opens and applied to
+        // explicitly, because opening the flyout moves focus off the editor.
+        auto start = std::make_shared<int32_t>(0);
+        auto end = std::make_shared<int32_t>(0);
+        // ColorPicker raises ColorChanged once when we seed it with the current
+        // color; suppress that so opening the picker never recolors the selection.
+        auto suppress = std::make_shared<bool>(false);
+
+        auto applyColor = [this, highlight, start, end](winrt::Windows::UI::Color color) {
+            auto range = editor_.Document().GetRange(*start, *end);
+            auto c = range.CharacterFormat();
+            if (highlight) c.BackgroundColor(color); else c.ForegroundColor(color);
+            range.CharacterFormat(c);
+        };
+
         winrt::ColorPicker picker;
         picker.IsAlphaEnabled(false);
-        picker.ColorChanged([this, highlight](winrt::ColorPicker const& p,
+        picker.ColorChanged([suppress, applyColor](winrt::ColorPicker const& p,
                               winrt::ColorChangedEventArgs const&) {
-            if (highlight) SetHighlight(p.Color()); else SetForeground(p.Color());
+            if (*suppress) return;
+            applyColor(p.Color());
         });
-        winrt::Flyout flyout; flyout.Content(picker);
+
+        auto panel = ui::VStack(8);
+        panel.Children().Append(picker);
+
+        winrt::Flyout flyout; flyout.Content(panel);
+
+        // Highlight can be cleared back to "none" (transparent); a colored
+        // foreground always needs a concrete color, so no reset there.
+        if (highlight) {
+            winrt::Button clear;
+            clear.Content(winrt::box_value(winrt::hstring(L"No highlight")));
+            clear.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
+            clear.Click([applyColor, flyout](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+                applyColor(winrt::Windows::UI::Colors::Transparent());
+                flyout.Hide();
+            });
+            panel.Children().Append(clear);
+        }
+
+        flyout.Opening([this, picker, suppress, start, end, highlight](winrt::IInspectable const&,
+                        winrt::IInspectable const&) {
+            auto sel = Sel();
+            *start = sel.StartPosition();
+            *end = sel.EndPosition();
+            *suppress = true;  // seed the picker without applying it
+            auto c = sel.CharacterFormat();
+            picker.Color(highlight ? c.BackgroundColor() : c.ForegroundColor());
+            *suppress = false;
+        });
         b.Flyout(flyout);
         return b;
     }

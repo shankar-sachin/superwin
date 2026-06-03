@@ -27,6 +27,9 @@ CMakeUserPresets.json
 # Release notes
 /RELEASE_2.0.0.md
 
+/.claude/
+/CLAUDE.md
+
 # Misc
 *.log
 Thumbs.db

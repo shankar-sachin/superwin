@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (MSVC)
     add_compile_options(/utf-8 /W4 /permissive- /EHsc)
+    # /MP: compile translation units across all cores. The WinUI sources each
+    # pull in the large C++/WinRT + Windows App SDK headers, so multi-processor
+    # compilation cuts a cold build from many minutes to a fraction of that.
+    add_compile_options(/MP)
 endif()
 add_compile_definitions(UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 

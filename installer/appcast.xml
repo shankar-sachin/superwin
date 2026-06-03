@@ -19,9 +19,32 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>SuperWin</title>
-    <link>https://example.com/superwin/</link>
+    <link>https://github.com/shankar-sachin/superwin</link>
     <description>Most recent SuperWin updates</description>
     <language>en</language>
+
+    <item>
+      <title>SuperWin 2.1.1</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.1.1</h2>
+        <ul>
+          <li>New tools: <b>Password Generator</b> (length, character classes, strength) and
+              <b>Text</b> utilities (case conversion, trimming, counting, and more).</li>
+          <li>Notepad Super: fixed the text/highlight color pickers applying a stray default
+              color the moment they were opened; color now applies reliably to the selection.</li>
+          <li>Notepad Super: the editor keeps its selection active after using a toolbar button,
+              so formatting and typing continue where you left off.</li>
+          <li>Fixed the version number so the auto-updater reports builds correctly.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Wed, 03 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.1.1/SuperWin_v2.1.1.exe"
+        sparkle:version="2.1.1"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
 
     <item>
       <title>SuperWin 2.0.0</title>
@@ -38,7 +61,7 @@
       ]]></description>
       <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>
       <enclosure
-        url="https://example.com/superwin/SuperWin-Setup-2.0.0.exe"
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.0.0/SuperWin-Setup.exe"
         sparkle:version="2.0.0"
         sparkle:os="windows"
         length="0"
@@ -59,7 +82,7 @@
       ]]></description>
       <pubDate>Sat, 30 May 2026 00:00:00 +0000</pubDate>
       <enclosure
-        url="https://example.com/superwin/SuperWin-Setup-1.3.0.exe"
+        url="https://github.com/shankar-sachin/superwin/releases/download/v1.3.0/SuperWin-Setup.exe"
         sparkle:version="1.3.0"
         sparkle:os="windows"
         length="0"

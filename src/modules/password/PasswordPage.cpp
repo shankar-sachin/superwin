@@ -40,8 +40,9 @@ private:
 
         auto copy = winrt::Button();
         copy.Content(winrt::box_value(winrt::hstring(L"Copy")));
-        copy.Click([this](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+        copy.Click([this, copy](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
             WriteClipboardText(std::wstring(output_.Text()));
+            ui::FlashCopied(copy);
         });
         auto regen = winrt::Button();
         regen.Content(winrt::box_value(winrt::hstring(L"Regenerate")));

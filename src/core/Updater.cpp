@@ -15,7 +15,7 @@ namespace {
 // settings) at wherever you publish releases, e.g. a GitHub Pages URL or a
 // "latest" release asset. See installer/appcast.xml for the feed format.
 constexpr char kDefaultAppcastUrl[] =
-    "https://raw.githubusercontent.com/your-org/superwin/main/appcast.xml";
+    "https://raw.githubusercontent.com/shankar-sachin/superwin/master/installer/appcast.xml";
 
 bool g_initialized = false;
 

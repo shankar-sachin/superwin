@@ -3,6 +3,7 @@
 // titles, vertical/horizontal stacks). Header-only.
 #pragma once
 
+#include <chrono>
 #include <functional>
 
 #include <winrt/Windows.Foundation.h>
@@ -74,6 +75,27 @@ inline muxc::Border Card(mux::UIElement content, double padding = 16) {
     }
     b.Child(content);
     return b;
+}
+
+// Briefly flip a copy button to "Copied" after a successful copy, then restore
+// its original content (label or icon). The real original is stashed in the
+// button's Tag so rapid repeat clicks never leave it stuck on "Copied". The
+// timer stops itself via the sender, so there is no capture cycle keeping it
+// (or the page) alive.
+inline void FlashCopied(muxc::Button button) {
+    if (!button.Tag()) button.Tag(button.Content());
+    button.Content(winrt::box_value(winrt::hstring(L"Copied")));
+    mux::DispatcherTimer timer;
+    timer.Interval(std::chrono::milliseconds(1200));
+    timer.Tick([button](winrt::Windows::Foundation::IInspectable const& sender,
+                        winrt::Windows::Foundation::IInspectable const&) {
+        if (auto orig = button.Tag()) {
+            button.Content(orig);
+            button.Tag(nullptr);
+        }
+        sender.as<mux::DispatcherTimer>().Stop();
+    });
+    timer.Start();
 }
 
 // Scrollable page body with comfortable padding and a title at the top.

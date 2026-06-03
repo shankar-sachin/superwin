@@ -15,6 +15,8 @@ title bar and a built-in **Settings** page. It bundles:
 - **Hash & Checksum** — MD5 / SHA-1 / SHA-256 of text or files (CNG/BCrypt).
 - **Network Info** — adapters, IPv4/IPv6, MAC, and a quick ping.
 - **Unit Converter** — length/mass/temperature/data-size units and number bases.
+- **Password Generator** — configurable length and character classes with a strength readout.
+- **Text** — case conversion, trimming, counting, and other quick text transforms.
 
 ## Architecture
 
@@ -43,7 +45,10 @@ src/
     hash/                   HashLogic (CNG/BCrypt), HashPage
     netinfo/                NetInfoLogic (IP Helper/Winsock), NetInfoPage
     convert/                ConvertLogic, ConvertPage
-tests/                      Catch2 unit tests (VolumeMath, ClipStore, HashLogic, ConvertLogic)
+    password/               PasswordLogic, PasswordPage
+    text/                   TextLogic, TextPage
+tests/                      Catch2 unit tests (VolumeMath, ClipStore, HashLogic,
+                            ConvertLogic, PasswordLogic, TextLogic)
 installer/SuperWin.iss      Inno Setup wizard script
 ```
 
@@ -95,7 +100,7 @@ clean uninstaller.
 
 ## Versioning & auto-updates
 
-Current version: **2.0.0** (`src/Version.h` is the single source of truth; the exe
+Current version: **2.1.1** (`src/Version.h` is the single source of truth; the exe
 carries a matching `VERSIONINFO` resource).
 
 SuperWin auto-updates via **WinSparkle**. The installed app polls an *appcast* feed
@@ -117,9 +122,11 @@ EdDSA key via `win_sparkle_set_eddsa_*` and add `sparkle:edSignature` to the fee
 
 ## Status
 
-**v2.0.0:** Nine tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
-Keep Awake, Hash & Checksum, Network Info, Unit Converter), a blended custom title
-bar, a Settings page (theme, startup, clipboard options), and a working
-`Win+Shift+V` quick-picker backed by process-wide clipboard capture. Self-contained,
-code-first WinUI 3, WinSparkle auto-updates, per-user Inno Setup wizard, and passing
-Catch2 unit tests.
+**v2.1.1:** Eleven tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
+Keep Awake, Hash & Checksum, Network Info, Unit Converter, Password Generator, Text),
+a blended custom title bar, a Settings page (theme, startup, clipboard options), and a
+working `Win+Shift+V` quick-picker backed by process-wide clipboard capture.
+Self-contained, code-first WinUI 3, WinSparkle auto-updates, per-user Inno Setup
+wizard, and passing Catch2 unit tests. This patch corrects the version number (the
+2.1.0 build still reported 2.0.0, which broke update detection) and fixes the Notepad
+Super color pickers and selection handling.

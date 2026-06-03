@@ -96,6 +96,13 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     }
     window_.AppWindow().Resize({1120, 760});
 
+    // Open maximized (fills the work area, keeps the title bar/caption buttons).
+    // The 1120x760 above is the size the window restores to when un-maximized.
+    if (auto p = window_.AppWindow().Presenter()
+                     .try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
+        p.Maximize();
+    }
+
     // Blend the title bar into the app: extend content underneath, draw the
     // caption buttons transparently over Mica.
     window_.ExtendsContentIntoTitleBar(true);

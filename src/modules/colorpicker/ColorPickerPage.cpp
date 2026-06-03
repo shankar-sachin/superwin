@@ -60,13 +60,15 @@ private:
 
         auto copyHex = winrt::Button();
         copyHex.Content(winrt::box_value(winrt::hstring(L"Copy hex")));
-        copyHex.Click([this](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+        copyHex.Click([this, copyHex](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
             WriteClipboardText(HexOf(picker_.Color()));
+            ui::FlashCopied(copyHex);
         });
         auto copyRgb = winrt::Button();
         copyRgb.Content(winrt::box_value(winrt::hstring(L"Copy rgb")));
-        copyRgb.Click([this](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+        copyRgb.Click([this, copyRgb](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
             WriteClipboardText(RgbOf(picker_.Color()));
+            ui::FlashCopied(copyRgb);
         });
 
         eyedropper_ = winrt::Button();

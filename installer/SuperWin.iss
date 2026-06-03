@@ -8,7 +8,7 @@
 ;  see the [Files] section paths below.)
 
 #define AppName "SuperWin"
-#define AppVersion "2.0.0"
+#define AppVersion "2.1.1"
 #define AppPublisher "SuperWin"
 #define AppExe "SuperWin.exe"
 
@@ -22,7 +22,7 @@ DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 SetupIconFile=..\SuperWin.ico
 OutputDir=Output
-OutputBaseFilename=SuperWin-Setup
+OutputBaseFilename=SuperWin_v{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

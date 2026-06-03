@@ -92,8 +92,9 @@ private:
         auto copy = winrt::Button();
         copy.Content(winrt::box_value(winrt::hstring(L"Copy")));
         auto box = r.value;
-        copy.Click([box](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+        copy.Click([box, copy](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
             WriteClipboardText(std::wstring(box.Text()));
+            ui::FlashCopied(copy);
         });
 
         auto row = ui::HStack(10);
