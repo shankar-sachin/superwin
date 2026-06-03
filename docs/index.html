@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperWin — the Windows multi-tool</title>
+  <meta name="description" content="SuperWin is a single, fast WinUI 3 desktop multi-tool for Windows: clipboard history, system diagnostics, a rich-text notepad, color picker, hashes, and more." />
+  <meta name="theme-color" content="#0b0d12" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="SuperWin — the Windows multi-tool" />
+  <meta property="og:description" content="Eleven tools in one fast WinUI 3 app: clipboard quick-picker, live diagnostics, rich-text notepad, and more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="superwin_demo.gif" />
+
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="#top">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">SuperWin</span>
+      <span class="badge" id="navVersion">v2.1.4</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/shankar-sachin/superwin" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-copy reveal">
+        <div class="pill">
+          <span class="dot"></span> Free · Open-source · Windows 10/11
+        </div>
+        <h1>One app.<br /><span class="grad">Eleven tools.</span></h1>
+        <p class="lede">
+          SuperWin is a fast, self-contained <strong>WinUI&nbsp;3</strong> desktop multi-tool —
+          a global clipboard quick-picker, live system diagnostics, a rich-text notepad,
+          color picker, hashing, and more, behind one clean dashboard.
+        </p>
+
+        <div class="cta">
+          <a class="btn btn-primary" id="downloadBtn"
+             href="https://github.com/shankar-sachin/superwin/releases/latest">
+            <span class="btn-icon">⬇</span>
+            <span>
+              <span class="btn-title">Download for Windows</span>
+              <span class="btn-sub" id="downloadSub">SuperWin v2.1.4 · 64-bit · no admin</span>
+            </span>
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/shankar-sachin/superwin"
+             target="_blank" rel="noopener">View on GitHub</a>
+        </div>
+
+        <p class="fineprint">Per-user install · no UAC prompt · auto-updates built in.</p>
+      </div>
+
+      <div class="hero-demo reveal">
+        <div class="demo-frame">
+          <div class="demo-bar">
+            <span></span><span></span><span></span>
+            <em>SuperWin</em>
+          </div>
+          <img src="superwin_demo.gif" alt="SuperWin in action" loading="lazy" />
+        </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats reveal">
+      <div><strong>11</strong><span>built-in tools</span></div>
+      <div><strong>1</strong><span>tiny process</span></div>
+      <div><strong>0</strong><span>runtime to install</span></div>
+      <div><strong>Win+⇧+V</strong><span>clipboard picker</span></div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="features">
+      <h2 class="section-title reveal">Everything in the box</h2>
+      <div class="grid">
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#4f8ef7">📋</div>
+          <h3>Clipboard</h3>
+          <p>Process-wide history with a global <b>Win+Shift+V</b> picker — search, pinned items,
+             keyboard nav, and auto-paste back into your app.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#34c759">📊</div>
+          <h3>Diagnostics + Mini-monitor</h3>
+          <p>Full system inventory plus live CPU, RAM, <b>GPU/VRAM</b> and <b>disk</b> throughput.
+             A DPI-aware, colour-coded always-on-top mini-monitor.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#af52de">📝</div>
+          <h3>Notepad Super</h3>
+          <p>A Word-Lite rich-text editor: fonts, bold/italic/underline, text &amp; highlight
+             colours, lists, alignment, and RTF/TXT save.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#ff9f0a">🎨</div>
+          <h3>Color Picker</h3>
+          <p>Full colour wheel, hex/RGB with one-click copy, and a screen eyedropper.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#ff375f">🔊</div>
+          <h3>Volume Customizer</h3>
+          <p>Per-app and master volume in exact percent and decibels (WASAPI).</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#5ac8fa">🔒</div>
+          <h3>Hash &amp; Checksum</h3>
+          <p>MD5 / SHA-1 / SHA-256 of text or files, powered by Windows CNG.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#30d158">🌐</div>
+          <h3>Network Info</h3>
+          <p>Adapters, IPv4/IPv6, MAC addresses, and a quick ping.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#bf5af2">🔁</div>
+          <h3>Unit Converter</h3>
+          <p>Length, mass, temperature, data-size — plus number bases.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#ffd60a">🔑</div>
+          <h3>Password Generator</h3>
+          <p>Configurable length and character classes with a live strength readout.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#64d2ff">✏️</div>
+          <h3>Text Tools</h3>
+          <p>Case conversion, trimming, counting, and other quick transforms.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#ff9500">☕</div>
+          <h3>Keep Awake</h3>
+          <p>Stop sleep / screen-off, optionally for a fixed duration.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-ico" style="--c:#a0a0ab">⚙️</div>
+          <h3>Settings</h3>
+          <p>Theme (light/dark/system), launch at sign-in, and a hotkey you set by
+             <b>pressing the keys</b>.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- INSTALL -->
+    <section id="install" class="install">
+      <h2 class="section-title reveal">Get started in seconds</h2>
+      <div class="steps">
+        <div class="step reveal"><span class="num">1</span>
+          <p>Download <b id="installName">SuperWin_v2.1.4.exe</b> and run it. It's a
+             <b>per-user</b> install — no admin prompt.</p></div>
+        <div class="step reveal"><span class="num">2</span>
+          <p>Optionally add a desktop shortcut and <b>launch at sign-in</b> in the wizard.</p></div>
+        <div class="step reveal"><span class="num">3</span>
+          <p>Open SuperWin — it starts maximized and lives in the tray. Updates arrive
+             <b>automatically</b>.</p></div>
+      </div>
+      <div class="install-cta reveal">
+        <a class="btn btn-primary" id="downloadBtn2"
+           href="https://github.com/shankar-sachin/superwin/releases/latest">
+          <span class="btn-icon">⬇</span>
+          <span><span class="btn-title">Download SuperWin</span>
+            <span class="btn-sub" id="downloadSub2">v2.1.4 for Windows 10/11</span></span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">SuperWin</span>
+      <span class="badge" id="footVersion">v2.1.4</span>
+    </div>
+    <p>
+      <a href="https://github.com/shankar-sachin/superwin" target="_blank" rel="noopener">Source</a>
+      ·
+      <a href="https://github.com/shankar-sachin/superwin/releases" target="_blank" rel="noopener">Releases</a>
+      · <span id="year">2026</span> · MIT
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
