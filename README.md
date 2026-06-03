@@ -1,9 +1,9 @@
-# SuperWin v2.1.4
+# SuperWin v2.3.0
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
-built-in utility. Eleven tools, a global clipboard quick-picker, a live system monitor,
-self-contained deployment, and automatic updates.
+built-in utility. Fifteen tools (grouped into categories), a global clipboard quick-picker,
+a live system monitor, self-contained deployment, and automatic updates.
 
 > **Windows 10/11, 64-bit.** Ships self-contained (the Windows App Runtime is bundled),
 > so there is **no separate runtime to install**.
@@ -20,11 +20,11 @@ self-contained deployment, and automatic updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.1.4/SuperWin_v2.1.4.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.3.0/SuperWin_v2.3.0.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.1.4.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.3.0.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -68,15 +68,28 @@ to download and install it in place.
 - **Unit Converter** — length / mass / temperature / data-size units, plus number bases.
 - **Password Generator** — configurable length and character classes with a strength readout.
 - **Text** — case conversion, trimming, counting, and other quick text transforms.
+- **JSON Formatter** — pretty-print, minify, and validate JSON (with parse-error messages).
+- **GUID Generator** — random version-4 GUIDs, single or in bulk, with uppercase / hyphen /
+  brace options.
+- **Graphing Calculator** — plot `f(x)` with `+ - * / ^`, parentheses, the variable `x`,
+  common functions (sin, cos, sqrt, ln, …) and constants (pi, e), with auto-scaled axes.
+- **Security & Privacy** — cryptographically-secure random tokens (hex/Base64), a password
+  **strength meter** (entropy estimate), and one-click clipboard wiping.
 
-Throughout the app, **copy buttons flash "Copied"** when clicked, and **Settings** lets you set
+Tools are organized into categories — **System, Clipboard & Notes, Developer, Math,
+Security & Privacy, Media** — in both the navigation pane and the Home page. Throughout the
+app, **copy buttons flash "Copied"** when clicked, and **Settings** lets you set
 the app theme (light / dark / system), launch-at-sign-in, and clipboard behaviour — including
 setting the picker hotkey by **physically pressing the keys** (see below).
 
 ---
 
-## What's new in 2.1.x
+## What's new
 
+- **2.3.0** — Four new tools: **JSON Formatter**, **GUID Generator**, **Graphing Calculator**,
+  and **Security & Privacy**. Tools are now **grouped into categories** in the nav pane and on
+  Home; the Quick access tiles **snap and fill each row** by window width; and Settings gains an
+  **Always on top** option for the main window.
 - **2.1.4** — Mini-monitor is now **DPI-aware and sized to its content** (all four metrics
   always fit, at any display scale) and **colour-coded** (CPU blue, RAM green, GPU purple,
   Disk orange).

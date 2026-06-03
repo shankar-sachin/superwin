@@ -24,6 +24,30 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.3.0</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.3.0</h2>
+        <ul>
+          <li>Four new tools: <b>JSON Formatter</b>, <b>GUID Generator</b>,
+              <b>Graphing Calculator</b> (plot f(x) with functions/constants), and
+              <b>Security &amp; Privacy</b> (secure random tokens, a password-strength meter,
+              and one-click clipboard wiping).</li>
+          <li>Tools are now <b>grouped into categories</b> in the navigation pane and on the Home
+              page.</li>
+          <li>Home <b>Quick access</b> tiles snap and fill each row, adapting to the window width.</li>
+          <li>New <b>Always on top</b> option in Settings to pin the window above everything else.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Wed, 03 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.3.0/SuperWin_v2.3.0.exe"
+        sparkle:version="2.3.0"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.1.4</title>
       <description><![CDATA[
         <h2>SuperWin 2.1.4</h2>

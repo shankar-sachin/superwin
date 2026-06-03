@@ -35,6 +35,10 @@ std::unique_ptr<IModulePage> MakeNetInfoPage();
 std::unique_ptr<IModulePage> MakeConvertPage();
 std::unique_ptr<IModulePage> MakePasswordPage();
 std::unique_ptr<IModulePage> MakeTextPage();
+std::unique_ptr<IModulePage> MakeJsonPage();
+std::unique_ptr<IModulePage> MakeGuidPage();
+std::unique_ptr<IModulePage> MakeGraphPage();
+std::unique_ptr<IModulePage> MakeSecurityPage();
 // Home gets a navigate callback so its tiles can jump to a section by tag.
 std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> navigate);
 // Settings needs the shell (theme, navigation) and host (hotkey re-registration).
@@ -56,6 +60,9 @@ public:
 
     // Apply a theme to the whole window ("light" / "dark" / "system").
     void SetTheme(winrt::hstring mode);
+
+    // Pin/unpin the main window above other windows.
+    void SetAlwaysOnTop(bool on);
 
 private:
     IModulePage* EnsurePage(winrt::hstring const& tag);

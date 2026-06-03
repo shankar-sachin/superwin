@@ -119,24 +119,45 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     nav_.PaneTitle(L"SuperWin");
     nav_.IsPaneToggleButtonVisible(true);
 
-    // Home, then the modules. Glyphs are Segoe Fluent Icons codepoints.
+    // Home, then the modules grouped into categories. Glyphs are Segoe Fluent
+    // Icons codepoints.
     nav_.MenuItems().Append(MakeNavItem(L"Home", 0xE80F, L"home"));
 
-    auto modulesHeader = winrt::NavigationViewItemHeader();
-    modulesHeader.Content(winrt::box_value(winrt::hstring(L"Tools")));
-    nav_.MenuItems().Append(modulesHeader);
+    auto header = [this](const wchar_t* title) {
+        auto h = winrt::NavigationViewItemHeader();
+        h.Content(winrt::box_value(winrt::hstring(title)));
+        nav_.MenuItems().Append(h);
+    };
+    auto item = [this](const wchar_t* name, wchar_t glyph, const wchar_t* tag) {
+        nav_.MenuItems().Append(MakeNavItem(name, glyph, tag));
+    };
 
-    nav_.MenuItems().Append(MakeNavItem(L"Volume Customizer", 0xE767, L"volume"));
-    nav_.MenuItems().Append(MakeNavItem(L"Clipboard",         0xE8C8, L"clipboard"));
-    nav_.MenuItems().Append(MakeNavItem(L"Diagnostics",       0xE9D9, L"diagnostics"));
-    nav_.MenuItems().Append(MakeNavItem(L"Notepad Super",     0xE70F, L"notepad"));
-    nav_.MenuItems().Append(MakeNavItem(L"Color Picker",      0xE790, L"colorpicker"));
-    nav_.MenuItems().Append(MakeNavItem(L"Keep Awake",        0xE945, L"keepawake"));
-    nav_.MenuItems().Append(MakeNavItem(L"Hash & Checksum",   0xE72E, L"hash"));
-    nav_.MenuItems().Append(MakeNavItem(L"Network Info",      0xE968, L"netinfo"));
-    nav_.MenuItems().Append(MakeNavItem(L"Unit Converter",    0xE8EF, L"convert"));
-    nav_.MenuItems().Append(MakeNavItem(L"Password Generator", 0xE8D7, L"password"));
-    nav_.MenuItems().Append(MakeNavItem(L"Text Tools",        0xE8D2, L"text"));
+    header(L"System");
+    item(L"Volume Customizer", 0xE767, L"volume");
+    item(L"Diagnostics",       0xE9D9, L"diagnostics");
+    item(L"Network Info",      0xE968, L"netinfo");
+    item(L"Keep Awake",        0xE945, L"keepawake");
+
+    header(L"Clipboard & Notes");
+    item(L"Clipboard",     0xE8C8, L"clipboard");
+    item(L"Notepad Super", 0xE70F, L"notepad");
+    item(L"Text Tools",    0xE8D2, L"text");
+
+    header(L"Developer");
+    item(L"Hash & Checksum", 0xE72E, L"hash");
+    item(L"JSON Formatter",  0xE943, L"json");
+    item(L"GUID Generator",  0xE928, L"guid");
+
+    header(L"Math");
+    item(L"Unit Converter",      0xE8EF, L"convert");
+    item(L"Graphing Calculator", 0xE9D2, L"graph");
+
+    header(L"Security & Privacy");
+    item(L"Password Generator", 0xE8D7, L"password");
+    item(L"Security & Privacy", 0xEA18, L"security");
+
+    header(L"Media");
+    item(L"Color Picker", 0xE790, L"colorpicker");
 
     nav_.SelectionChanged(
         [this](winrt::NavigationView const&,
@@ -167,9 +188,10 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     root_.Children().Append(nav_);
     window_.Content(root_);
 
-    // Apply the saved theme, then start on Home.
+    // Apply the saved theme + always-on-top preference, then start on Home.
     SetTheme(winrt::hstring(Utf8ToWide(
         Settings::Instance().GetString("ui.theme", "system"))));
+    SetAlwaysOnTop(Settings::Instance().GetBool("ui.alwaysOnTop", false));
     nav_.SelectedItem(nav_.MenuItems().GetAt(0));
     return window_;
 }
@@ -179,6 +201,14 @@ void Shell::SetTheme(winrt::hstring mode) {
     if (mode == L"light") theme = winrt::ElementTheme::Light;
     else if (mode == L"dark") theme = winrt::ElementTheme::Dark;
     if (root_) root_.RequestedTheme(theme);
+}
+
+void Shell::SetAlwaysOnTop(bool on) {
+    if (!window_) return;
+    if (auto p = window_.AppWindow().Presenter()
+                     .try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
+        p.IsAlwaysOnTop(on);
+    }
 }
 
 IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
@@ -209,6 +239,14 @@ IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
         page = MakePasswordPage();
     } else if (tag == L"text") {
         page = MakeTextPage();
+    } else if (tag == L"json") {
+        page = MakeJsonPage();
+    } else if (tag == L"guid") {
+        page = MakeGuidPage();
+    } else if (tag == L"graph") {
+        page = MakeGraphPage();
+    } else if (tag == L"security") {
+        page = MakeSecurityPage();
     } else if (tag == L"settings") {
         page = MakeSettingsPage(this, host_);
     }

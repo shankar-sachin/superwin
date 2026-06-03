@@ -72,6 +72,19 @@ std::unique_ptr<IModulePage> MakeSettingsPage(Shell* shell, AppHost* host) {
         body.Children().Append(SettingRow(L"App theme", L"Choose light, dark, or follow Windows.", combo));
     }
 
+    // ---- Window ----
+    body.Children().Append(SectionHeader(L"Window"));
+    {
+        auto toggle = winrt::ToggleSwitch();
+        toggle.IsOn(settings.GetBool("ui.alwaysOnTop", false));
+        toggle.Toggled([shell](winrt::IInspectable const& s, winrt::RoutedEventArgs const&) {
+            const bool on = s.as<winrt::ToggleSwitch>().IsOn();
+            Settings::Instance().Set("ui.alwaysOnTop", on);
+            if (shell) shell->SetAlwaysOnTop(on);
+        });
+        body.Children().Append(SettingRow(L"Always on top", L"Keep the SuperWin window above other windows.", toggle));
+    }
+
     // ---- Startup ----
     body.Children().Append(SectionHeader(L"Startup"));
     {
