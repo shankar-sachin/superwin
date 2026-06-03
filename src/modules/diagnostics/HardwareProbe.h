@@ -58,6 +58,18 @@ struct LiveStats {
     uint32_t threadCount = 0;
     uint32_t handleCount = 0;
     uint64_t uptimeSeconds = 0;
+
+    // GPU (utilization via PDH, VRAM via DXGI).
+    bool     gpuAvailable = false;
+    double   gpuPercent = 0;
+    uint64_t vramUsedBytes = 0;
+    uint64_t vramBudgetBytes = 0;
+
+    // Physical disk activity + throughput (PDH, _Total instance).
+    bool     diskAvailable = false;
+    double   diskActivePercent = 0;
+    uint64_t diskReadBytesPerSec = 0;
+    uint64_t diskWriteBytesPerSec = 0;
 };
 
 LiveStats SampleLive();

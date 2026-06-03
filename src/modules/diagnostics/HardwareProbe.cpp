@@ -1,15 +1,20 @@
 #include "modules/diagnostics/HardwareProbe.h"
 
 #include <Windows.h>
-#include <dxgi.h>
+#include <dxgi1_4.h>
+#include <pdh.h>
+#include <pdhmsg.h>
 #include <psapi.h>
 #include <wrl/client.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "pdh.lib")
 
 namespace superwin {
 namespace {
@@ -234,6 +239,89 @@ uint64_t RamUsedBytes() {
     return mem.ullTotalPhys - mem.ullAvailPhys;
 }
 
+namespace {
+
+// PDH query for the live GPU/disk counters -- the same data Task Manager shows.
+// English counter names are used so it works on localized Windows.
+struct PerfQuery {
+    PDH_HQUERY   query = nullptr;
+    PDH_HCOUNTER gpuUtil = nullptr;
+    PDH_HCOUNTER diskTime = nullptr;
+    PDH_HCOUNTER diskRead = nullptr;
+    PDH_HCOUNTER diskWrite = nullptr;
+    bool primed = false;   // rate counters need a second sample to be valid
+    bool ok = false;
+};
+
+PerfQuery& Perf() {
+    static PerfQuery p = [] {
+        PerfQuery q;
+        if (::PdhOpenQueryW(nullptr, 0, &q.query) != ERROR_SUCCESS) return q;
+        ::PdhAddEnglishCounterW(q.query, L"\\GPU Engine(*engtype_3D)\\Utilization Percentage", 0, &q.gpuUtil);
+        ::PdhAddEnglishCounterW(q.query, L"\\PhysicalDisk(_Total)\\% Disk Time", 0, &q.diskTime);
+        ::PdhAddEnglishCounterW(q.query, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec", 0, &q.diskRead);
+        ::PdhAddEnglishCounterW(q.query, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec", 0, &q.diskWrite);
+        q.ok = true;
+        return q;
+    }();
+    return p;
+}
+
+// Sum the utilization of every 3D-engine instance (one per process using the
+// GPU). Approximates Task Manager's headline GPU number; clamp to 100.
+bool ReadGpuUtil(PDH_HCOUNTER counter, double& out) {
+    if (!counter) return false;
+    DWORD size = 0, count = 0;
+    PDH_STATUS st = ::PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &size, &count, nullptr);
+    if (st != PDH_MORE_DATA || size == 0) return false;
+    std::vector<BYTE> buf(size);
+    auto* items = reinterpret_cast<PPDH_FMT_COUNTERVALUE_ITEM_W>(buf.data());
+    if (::PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &size, &count, items) != ERROR_SUCCESS) {
+        return false;
+    }
+    double sum = 0;
+    for (DWORD i = 0; i < count; ++i) {
+        if (items[i].FmtValue.CStatus == ERROR_SUCCESS) sum += items[i].FmtValue.doubleValue;
+    }
+    out = sum;
+    return true;
+}
+
+double ReadCounter(PDH_HCOUNTER counter) {
+    if (!counter) return 0;
+    PDH_FMT_COUNTERVALUE v{};
+    if (::PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, nullptr, &v) != ERROR_SUCCESS) return 0;
+    return v.doubleValue < 0 ? 0 : v.doubleValue;
+}
+
+// Live VRAM usage of the primary hardware adapter via DXGI.
+void GpuVramUsage(uint64_t& used, uint64_t& budget) {
+    static Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter = [] {
+        Microsoft::WRL::ComPtr<IDXGIAdapter3> a;
+        Microsoft::WRL::ComPtr<IDXGIFactory1> f;
+        if (SUCCEEDED(::CreateDXGIFactory1(IID_PPV_ARGS(&f)))) {
+            Microsoft::WRL::ComPtr<IDXGIAdapter1> a1;
+            for (UINT i = 0; f->EnumAdapters1(i, &a1) != DXGI_ERROR_NOT_FOUND; ++i) {
+                DXGI_ADAPTER_DESC1 d{};
+                if (SUCCEEDED(a1->GetDesc1(&d)) && !(d.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
+                    a1.As(&a);
+                    break;
+                }
+                a1.Reset();
+            }
+        }
+        return a;
+    }();
+    if (!adapter) return;
+    DXGI_QUERY_VIDEO_MEMORY_INFO info{};
+    if (SUCCEEDED(adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &info))) {
+        used = info.CurrentUsage;
+        budget = info.Budget;
+    }
+}
+
+}  // namespace
+
 LiveStats SampleLive() {
     LiveStats s;
     s.cpuPercent = CpuUsagePercent();
@@ -256,6 +344,28 @@ LiveStats SampleLive() {
     }
 
     s.uptimeSeconds = ::GetTickCount64() / 1000;
+
+    // GPU + disk live counters via PDH (needs a second sample for rates).
+    PerfQuery& perf = Perf();
+    if (perf.ok && ::PdhCollectQueryData(perf.query) == ERROR_SUCCESS) {
+        if (!perf.primed) {
+            perf.primed = true;  // first collect just seeds the rate counters
+        } else {
+            double gpu = 0;
+            if (ReadGpuUtil(perf.gpuUtil, gpu)) {
+                s.gpuAvailable = true;
+                s.gpuPercent = (std::min)(gpu, 100.0);
+            }
+            if (perf.diskTime) {
+                s.diskAvailable = true;
+                s.diskActivePercent = (std::min)(ReadCounter(perf.diskTime), 100.0);
+                s.diskReadBytesPerSec = static_cast<uint64_t>(ReadCounter(perf.diskRead));
+                s.diskWriteBytesPerSec = static_cast<uint64_t>(ReadCounter(perf.diskWrite));
+            }
+        }
+    }
+
+    GpuVramUsage(s.vramUsedBytes, s.vramBudgetBytes);
     return s;
 }
 

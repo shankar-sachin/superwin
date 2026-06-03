@@ -1,11 +1,18 @@
+#include <Windows.h>
+
+#include <memory>
+
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.System.h>
+#include <winrt/Microsoft.UI.Xaml.Input.h>
 
 #include "Version.h"
 #include "app/AppHost.h"
 #include "app/Shell.h"
 #include "app/Ui.h"
 #include "core/Autostart.h"
+#include "core/Hotkeys.h"
 #include "core/Settings.h"
 #include "core/Strings.h"
 #include "core/Updater.h"
@@ -107,25 +114,75 @@ std::unique_ptr<IModulePage> MakeSettingsPage(Shell* shell, AppHost* host) {
         });
         body.Children().Append(SettingRow(L"History size", L"How many unpinned clips to keep.", maxItems));
 
-        // Hotkey + apply + status.
+        // Hotkey: click the box and physically press the combination. The
+        // capture applies (and re-registers) immediately -- no typing, no Apply.
         auto status = ui::Caption(host && host->HotkeyActive()
             ? L"Active" : L"Not registered \x2014 may be in use by another app.");
         auto hotkeyBox = winrt::TextBox();
+        hotkeyBox.IsReadOnly(true);
+        hotkeyBox.Width(180);
+        hotkeyBox.PlaceholderText(L"Press a shortcut\x2026");
         hotkeyBox.Text(winrt::hstring(Utf8ToWide(settings.GetString("clipboard.hotkey", "Win+Shift+V"))));
-        hotkeyBox.Width(160);
-        auto apply = winrt::Button();
-        apply.Content(winrt::box_value(winrt::hstring(L"Apply")));
-        apply.Click([hotkeyBox, host, status](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
-            Settings::Instance().Set("clipboard.hotkey", WideToUtf8(std::wstring(hotkeyBox.Text())));
+
+        auto recording = std::make_shared<bool>(false);
+
+        hotkeyBox.GotFocus([hotkeyBox, recording, status](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+            *recording = true;
+            hotkeyBox.Text(L"Press a shortcut\x2026");
+            status.Text(L"Listening\x2026 press your key combination.");
+        });
+        hotkeyBox.LostFocus([hotkeyBox, recording, host, status](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+            *recording = false;
+            hotkeyBox.Text(winrt::hstring(Utf8ToWide(
+                Settings::Instance().GetString("clipboard.hotkey", "Win+Shift+V"))));
+            if (host) status.Text(host->HotkeyActive()
+                ? L"Active" : L"Not registered \x2014 try another combination.");
+        });
+        hotkeyBox.KeyDown([hotkeyBox, recording, host, status](
+                winrt::IInspectable const&, winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& e) {
+            if (!*recording) return;
+            e.Handled(true);  // swallow navigation/beeps while capturing
+            using VK = winrt::Windows::System::VirtualKey;
+            const VK key = e.Key();
+            // Ignore presses of a modifier on its own -- wait for the real key.
+            if (key == VK::Control || key == VK::Shift || key == VK::Menu ||
+                key == VK::LeftWindows || key == VK::RightWindows ||
+                key == VK::LeftControl || key == VK::RightControl ||
+                key == VK::LeftShift || key == VK::RightShift ||
+                key == VK::LeftMenu || key == VK::RightMenu) {
+                return;
+            }
+            const UINT vk = static_cast<UINT>(key);
+            const bool mainKey = (vk >= 'A' && vk <= 'Z') || (vk >= '0' && vk <= '9') ||
+                                 (vk >= VK_F1 && vk <= VK_F24) || vk == VK_SPACE;
+            if (!mainKey) {
+                status.Text(L"Use a letter, number, F-key, or Space.");
+                return;
+            }
+            HotkeyCombo combo;
+            if (::GetKeyState(VK_CONTROL) & 0x8000) combo.modifiers |= MOD_CONTROL;
+            if (::GetKeyState(VK_SHIFT)   & 0x8000) combo.modifiers |= MOD_SHIFT;
+            if (::GetKeyState(VK_MENU)    & 0x8000) combo.modifiers |= MOD_ALT;
+            if ((::GetKeyState(VK_LWIN) & 0x8000) || (::GetKeyState(VK_RWIN) & 0x8000))
+                combo.modifiers |= MOD_WIN;
+            combo.vk = vk;
+            if (combo.modifiers == 0) {
+                status.Text(L"Add a modifier: Ctrl, Alt, Shift, or Win.");
+                return;
+            }
+            const std::string formatted = FormatHotkey(combo);
+            Settings::Instance().Set("clipboard.hotkey", formatted);
             const bool ok = host && host->ReRegisterHotkey();
+            hotkeyBox.Text(winrt::hstring(Utf8ToWide(formatted)));
             status.Text(ok ? L"Active" : L"Not registered \x2014 try another combination.");
         });
+
         auto hkRow = ui::HStack(8);
         hkRow.VerticalAlignment(winrt::VerticalAlignment::Center);
         hkRow.Children().Append(hotkeyBox);
-        hkRow.Children().Append(apply);
         hkRow.Children().Append(status);
-        body.Children().Append(SettingRow(L"Picker hotkey", L"Opens the quick clipboard picker anywhere.", hkRow));
+        body.Children().Append(SettingRow(L"Picker hotkey",
+            L"Click the box, then press the keys you want.", hkRow));
 
         auto clear = winrt::Button();
         clear.Content(winrt::box_value(winrt::hstring(L"Clear history")));

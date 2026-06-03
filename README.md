@@ -100,7 +100,7 @@ clean uninstaller.
 
 ## Versioning & auto-updates
 
-Current version: **2.1.1** (`src/Version.h` is the single source of truth; the exe
+Current version: **2.1.2** (`src/Version.h` is the single source of truth; the exe
 carries a matching `VERSIONINFO` resource).
 
 SuperWin auto-updates via **WinSparkle**. The installed app polls an *appcast* feed
@@ -122,11 +122,11 @@ EdDSA key via `win_sparkle_set_eddsa_*` and add `sparkle:edSignature` to the fee
 
 ## Status
 
-**v2.1.1:** Eleven tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
+**v2.1.2:** Eleven tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
 Keep Awake, Hash & Checksum, Network Info, Unit Converter, Password Generator, Text),
 a blended custom title bar, a Settings page (theme, startup, clipboard options), and a
 working `Win+Shift+V` quick-picker backed by process-wide clipboard capture.
 Self-contained, code-first WinUI 3, WinSparkle auto-updates, per-user Inno Setup
-wizard, and passing Catch2 unit tests. This patch corrects the version number (the
-2.1.0 build still reported 2.0.0, which broke update detection) and fixes the Notepad
-Super color pickers and selection handling.
+wizard, and passing Catch2 unit tests. This patch lets you set the picker hotkey by
+pressing the keys, and adds live GPU/VRAM and disk activity/throughput to Diagnostics
+(with a CPU/RAM/GPU/Disk mini-monitor that keeps running off-page).

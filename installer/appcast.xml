@@ -24,6 +24,28 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.1.2</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.1.2</h2>
+        <ul>
+          <li>Settings: set the clipboard picker hotkey by <b>physically pressing the keys</b>
+              instead of typing them out -- the new combo applies instantly.</li>
+          <li>Diagnostics: live <b>GPU usage</b> and <b>VRAM</b>, plus <b>disk activity</b> and
+              read/write throughput (the same counters Task Manager uses).</li>
+          <li>Mini-monitor now shows CPU, RAM, GPU and Disk, keeps updating after you leave the
+              Diagnostics page, and stays in sync when closed from its own title bar.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Wed, 03 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.1.2/SuperWin_v2.1.2.exe"
+        sparkle:version="2.1.2"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.1.1</title>
       <description><![CDATA[
         <h2>SuperWin 2.1.1</h2>
