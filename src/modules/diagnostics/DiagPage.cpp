@@ -1,8 +1,14 @@
+#include <Windows.h>
+
 #include <chrono>
+
+#include <microsoft.ui.xaml.window.h>  // IWindowNative (the mini-monitor's HWND)
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.UI.h>
 #include <winrt/Microsoft.UI.Windowing.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
 
 #include "app/Ui.h"
 #include "modules/diagnostics/HardwareProbe.h"
@@ -11,7 +17,15 @@ namespace winrt {
 using namespace winrt::Windows::Foundation;
 using namespace winrt::Microsoft::UI::Xaml;
 using namespace winrt::Microsoft::UI::Xaml::Controls;
+using namespace winrt::Microsoft::UI::Xaml::Media;
 }  // namespace winrt
+
+namespace {
+constexpr winrt::Windows::UI::Color kCpuColor{255, 0x4F, 0x8E, 0xF7};   // blue
+constexpr winrt::Windows::UI::Color kRamColor{255, 0x34, 0xC7, 0x59};   // green
+constexpr winrt::Windows::UI::Color kGpuColor{255, 0xAF, 0x52, 0xDE};   // purple
+constexpr winrt::Windows::UI::Color kDiskColor{255, 0xFF, 0x9F, 0x0A};  // orange
+}  // namespace
 
 namespace superwin {
 namespace {
@@ -217,7 +231,7 @@ private:
     // One polished metric row for the mini-monitor: icon + name on the left, a
     // right-aligned accent value, and a slim rounded progress bar beneath.
     winrt::Microsoft::UI::Xaml::UIElement MiniMetric(
-            wchar_t glyph, winrt::hstring name,
+            wchar_t glyph, winrt::hstring name, winrt::Windows::UI::Color color,
             winrt::Microsoft::UI::Xaml::Controls::TextBlock& outValue,
             winrt::Microsoft::UI::Xaml::Controls::ProgressBar& outBar) {
         winrt::Grid header;
@@ -230,19 +244,21 @@ private:
         header.ColumnDefinitions().Append(c2);
         header.ColumnSpacing(8);
 
-        winrt::FontIcon icon; icon.Glyph(winrt::hstring(&glyph, 1)); icon.FontSize(14);
+        const winrt::SolidColorBrush accent{color};
+
+        winrt::FontIcon icon; icon.Glyph(winrt::hstring(&glyph, 1)); icon.FontSize(15);
         icon.VerticalAlignment(winrt::VerticalAlignment::Center);
-        if (auto b = ui::ThemeBrush(L"TextFillColorSecondaryBrush")) icon.Foreground(b);
+        icon.Foreground(accent);
         winrt::Grid::SetColumn(icon, 0);
 
-        auto label = ui::Text(name, 13, true);
+        auto label = ui::Text(name, 13.5, true);
         label.VerticalAlignment(winrt::VerticalAlignment::Center);
         winrt::Grid::SetColumn(label, 1);
 
-        outValue = ui::Text(L"\x2014", 15, true);
+        outValue = ui::Text(L"\x2014", 16, true);
         outValue.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         outValue.VerticalAlignment(winrt::VerticalAlignment::Center);
-        if (auto b = ui::ThemeBrush(L"AccentTextFillColorPrimaryBrush")) outValue.Foreground(b);
+        outValue.Foreground(accent);
         winrt::Grid::SetColumn(outValue, 2);
 
         header.Children().Append(icon);
@@ -253,6 +269,7 @@ private:
         outBar.Maximum(100);
         outBar.Height(6);
         outBar.CornerRadius(winrt::CornerRadius{3, 3, 3, 3});
+        outBar.Foreground(accent);
 
         auto cell = ui::VStack(6);
         cell.Children().Append(header);
@@ -266,12 +283,12 @@ private:
             miniWindow_.Title(L"SuperWin Monitor");
             miniWindow_.SystemBackdrop(winrt::Microsoft::UI::Xaml::Media::MicaBackdrop());
 
-            auto col = ui::VStack(14);
-            col.Margin(winrt::Thickness{18, 14, 18, 16});
-            col.Children().Append(MiniMetric(0xE950, L"CPU", miniCpu_, miniCpuBar_));   // chip
-            col.Children().Append(MiniMetric(0xEEA0, L"RAM", miniRam_, miniRamBar_));   // memory
-            col.Children().Append(MiniMetric(0xF211, L"GPU", miniGpu_, miniGpuBar_));   // display
-            col.Children().Append(MiniMetric(0xEDA2, L"Disk", miniDisk_, miniDiskBar_)); // drive
+            auto col = ui::VStack(13);
+            col.Margin(winrt::Thickness{18, 16, 18, 18});
+            col.Children().Append(MiniMetric(0xE950, L"CPU", kCpuColor, miniCpu_, miniCpuBar_));    // chip
+            col.Children().Append(MiniMetric(0xEEA0, L"RAM", kRamColor, miniRam_, miniRamBar_));    // memory
+            col.Children().Append(MiniMetric(0xF211, L"GPU", kGpuColor, miniGpu_, miniGpuBar_));    // display
+            col.Children().Append(MiniMetric(0xEDA2, L"Disk", kDiskColor, miniDisk_, miniDiskBar_)); // drive
             miniWindow_.Content(col);
 
             if (auto p = miniWindow_.AppWindow().Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
@@ -281,7 +298,19 @@ private:
                 p.IsMaximizable(false);
                 p.IsMinimizable(false);
             }
-            miniWindow_.AppWindow().Resize({250, 252});
+
+            // Size the *client* area to the content, scaled for the window's DPI.
+            // Resize/ResizeClient take physical pixels, but our layout is in DIPs,
+            // so without scaling the rows get clipped on high-DPI displays.
+            double scale = 1.0;
+            HWND hwnd = nullptr;
+            if (auto native = miniWindow_.try_as<::IWindowNative>()) {
+                native->get_WindowHandle(&hwnd);
+                if (hwnd) scale = ::GetDpiForWindow(hwnd) / 96.0;
+            }
+            const int wDip = 248, hDip = 224;  // fits 4 rows + margins comfortably
+            miniWindow_.AppWindow().ResizeClient(
+                {static_cast<int32_t>(wDip * scale + 0.5), static_cast<int32_t>(hDip * scale + 0.5)});
 
             // If the user closes the mini-monitor with its own title-bar X, tidy
             // up our state and flip the toggle back off (instead of leaving a

@@ -100,7 +100,7 @@ clean uninstaller.
 
 ## Versioning & auto-updates
 
-Current version: **2.1.3** (`src/Version.h` is the single source of truth; the exe
+Current version: **2.1.4** (`src/Version.h` is the single source of truth; the exe
 carries a matching `VERSIONINFO` resource).
 
 SuperWin auto-updates via **WinSparkle**. The installed app polls an *appcast* feed
@@ -122,11 +122,12 @@ EdDSA key via `win_sparkle_set_eddsa_*` and add `sparkle:edSignature` to the fee
 
 ## Status
 
-**v2.1.3:** Eleven tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
+**v2.1.4:** Eleven tools (Volume, Clipboard, Diagnostics, Notepad, Color Picker,
 Keep Awake, Hash & Checksum, Network Info, Unit Converter, Password Generator, Text),
 a blended custom title bar, a Settings page (theme, startup, clipboard options), and a
 working `Win+Shift+V` quick-picker backed by process-wide clipboard capture.
 Self-contained, code-first WinUI 3, WinSparkle auto-updates, per-user Inno Setup
 wizard, and passing Catch2 unit tests. This patch lets you set the picker hotkey by
 pressing the keys, adds live GPU/VRAM and disk activity/throughput to Diagnostics, and
-ships a redesigned CPU/RAM/GPU/Disk mini-monitor that keeps running off-page.
+ships a colour-coded CPU/RAM/GPU/Disk mini-monitor that is DPI-aware, sized to fit all
+four metrics, and keeps running off-page.
