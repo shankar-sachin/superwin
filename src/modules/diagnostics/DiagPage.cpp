@@ -203,13 +203,61 @@ private:
         uptimeLabel_.Text(winrt::hstring(L"Uptime  " + FormatDuration(st.uptimeSeconds)));
 
         if (miniCpu_) {
-            miniCpu_.Text(cpuLabel_.Text());
-            miniRam_.Text(winrt::hstring(L"RAM  " + Pct(st.ramPercent)));
-            miniGpu_.Text(winrt::hstring(st.gpuAvailable ? (L"GPU  " + Pct(st.gpuPercent))
-                                                         : std::wstring(L"GPU  n/a")));
-            miniDisk_.Text(winrt::hstring(st.diskAvailable ? (L"Disk  " + Pct(st.diskActivePercent))
-                                                           : std::wstring(L"Disk  n/a")));
+            miniCpu_.Text(winrt::hstring(Pct(st.cpuPercent)));
+            miniCpuBar_.Value(st.cpuPercent);
+            miniRam_.Text(winrt::hstring(Pct(st.ramPercent)));
+            miniRamBar_.Value(st.ramPercent);
+            miniGpu_.Text(winrt::hstring(st.gpuAvailable ? Pct(st.gpuPercent) : std::wstring(L"n/a")));
+            miniGpuBar_.Value(st.gpuAvailable ? st.gpuPercent : 0.0);
+            miniDisk_.Text(winrt::hstring(st.diskAvailable ? Pct(st.diskActivePercent) : std::wstring(L"n/a")));
+            miniDiskBar_.Value(st.diskAvailable ? st.diskActivePercent : 0.0);
         }
+    }
+
+    // One polished metric row for the mini-monitor: icon + name on the left, a
+    // right-aligned accent value, and a slim rounded progress bar beneath.
+    winrt::Microsoft::UI::Xaml::UIElement MiniMetric(
+            wchar_t glyph, winrt::hstring name,
+            winrt::Microsoft::UI::Xaml::Controls::TextBlock& outValue,
+            winrt::Microsoft::UI::Xaml::Controls::ProgressBar& outBar) {
+        winrt::Grid header;
+        auto c0 = winrt::ColumnDefinition(); c0.Width(winrt::GridLengthHelper::Auto());
+        auto c1 = winrt::ColumnDefinition();
+        c1.Width(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+        auto c2 = winrt::ColumnDefinition(); c2.Width(winrt::GridLengthHelper::Auto());
+        header.ColumnDefinitions().Append(c0);
+        header.ColumnDefinitions().Append(c1);
+        header.ColumnDefinitions().Append(c2);
+        header.ColumnSpacing(8);
+
+        winrt::FontIcon icon; icon.Glyph(winrt::hstring(&glyph, 1)); icon.FontSize(14);
+        icon.VerticalAlignment(winrt::VerticalAlignment::Center);
+        if (auto b = ui::ThemeBrush(L"TextFillColorSecondaryBrush")) icon.Foreground(b);
+        winrt::Grid::SetColumn(icon, 0);
+
+        auto label = ui::Text(name, 13, true);
+        label.VerticalAlignment(winrt::VerticalAlignment::Center);
+        winrt::Grid::SetColumn(label, 1);
+
+        outValue = ui::Text(L"\x2014", 15, true);
+        outValue.HorizontalAlignment(winrt::HorizontalAlignment::Right);
+        outValue.VerticalAlignment(winrt::VerticalAlignment::Center);
+        if (auto b = ui::ThemeBrush(L"AccentTextFillColorPrimaryBrush")) outValue.Foreground(b);
+        winrt::Grid::SetColumn(outValue, 2);
+
+        header.Children().Append(icon);
+        header.Children().Append(label);
+        header.Children().Append(outValue);
+
+        outBar = winrt::ProgressBar();
+        outBar.Maximum(100);
+        outBar.Height(6);
+        outBar.CornerRadius(winrt::CornerRadius{3, 3, 3, 3});
+
+        auto cell = ui::VStack(6);
+        cell.Children().Append(header);
+        cell.Children().Append(outBar);
+        return cell;
     }
 
     void ToggleMini(bool on) {
@@ -217,17 +265,15 @@ private:
             miniWindow_ = winrt::Window();
             miniWindow_.Title(L"SuperWin Monitor");
             miniWindow_.SystemBackdrop(winrt::Microsoft::UI::Xaml::Media::MicaBackdrop());
-            auto col = ui::VStack(4);
-            col.Margin(winrt::Thickness{16, 12, 16, 12});
-            miniCpu_ = ui::Text(L"CPU  0%", 16, true);
-            miniRam_ = ui::Text(L"RAM  0%", 16, true);
-            miniGpu_ = ui::Text(L"GPU  0%", 16, true);
-            miniDisk_ = ui::Text(L"Disk  0%", 16, true);
-            col.Children().Append(miniCpu_);
-            col.Children().Append(miniRam_);
-            col.Children().Append(miniGpu_);
-            col.Children().Append(miniDisk_);
+
+            auto col = ui::VStack(14);
+            col.Margin(winrt::Thickness{18, 14, 18, 16});
+            col.Children().Append(MiniMetric(0xE950, L"CPU", miniCpu_, miniCpuBar_));   // chip
+            col.Children().Append(MiniMetric(0xEEA0, L"RAM", miniRam_, miniRamBar_));   // memory
+            col.Children().Append(MiniMetric(0xF211, L"GPU", miniGpu_, miniGpuBar_));   // display
+            col.Children().Append(MiniMetric(0xEDA2, L"Disk", miniDisk_, miniDiskBar_)); // drive
             miniWindow_.Content(col);
+
             if (auto p = miniWindow_.AppWindow().Presenter().try_as<winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
                 p.IsAlwaysOnTop(true);
                 p.SetBorderAndTitleBar(true, true);
@@ -235,7 +281,7 @@ private:
                 p.IsMaximizable(false);
                 p.IsMinimizable(false);
             }
-            miniWindow_.AppWindow().Resize({240, 190});
+            miniWindow_.AppWindow().Resize({250, 252});
 
             // If the user closes the mini-monitor with its own title-bar X, tidy
             // up our state and flip the toggle back off (instead of leaving a
@@ -243,6 +289,7 @@ private:
             miniWindow_.Closed([this](winrt::IInspectable const&, winrt::WindowEventArgs const&) {
                 miniWindow_ = nullptr;
                 miniCpu_ = miniRam_ = miniGpu_ = miniDisk_ = nullptr;
+            miniCpuBar_ = miniRamBar_ = miniGpuBar_ = miniDiskBar_ = nullptr;
                 if (mini_ && mini_.IsOn()) mini_.IsOn(false);
                 if (!shown_) timer_.Stop();  // page is off-screen and monitor gone
             });
@@ -255,6 +302,7 @@ private:
             auto w = miniWindow_;
             miniWindow_ = nullptr;  // null first so Closed handler is a no-op
             miniCpu_ = miniRam_ = miniGpu_ = miniDisk_ = nullptr;
+            miniCpuBar_ = miniRamBar_ = miniGpuBar_ = miniDiskBar_ = nullptr;
             w.Close();
         }
     }
@@ -274,6 +322,8 @@ private:
     winrt::Microsoft::UI::Xaml::Window miniWindow_{nullptr};
     winrt::Microsoft::UI::Xaml::Controls::TextBlock miniCpu_{nullptr}, miniRam_{nullptr};
     winrt::Microsoft::UI::Xaml::Controls::TextBlock miniGpu_{nullptr}, miniDisk_{nullptr};
+    winrt::Microsoft::UI::Xaml::Controls::ProgressBar miniCpuBar_{nullptr}, miniRamBar_{nullptr};
+    winrt::Microsoft::UI::Xaml::Controls::ProgressBar miniGpuBar_{nullptr}, miniDiskBar_{nullptr};
     bool shown_ = false;
 };
 
