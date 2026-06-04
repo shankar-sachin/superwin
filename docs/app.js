@@ -3,7 +3,7 @@
   "use strict";
 
   var REPO = "shankar-sachin/superwin";
-  var FALLBACK_VERSION = "2.3.0"; // keep in sync with src/Version.h
+  var FALLBACK_VERSION = "2.3.1"; // keep in sync with src/Version.h
 
   // ---- Footer year ----
   var yearEl = document.getElementById("year");

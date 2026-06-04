@@ -8,7 +8,7 @@
 ;  see the [Files] section paths below.)
 
 #define AppName "SuperWin"
-#define AppVersion "2.3.0"
+#define AppVersion "2.3.2"
 #define AppPublisher "SuperWin"
 #define AppExe "SuperWin.exe"
 
@@ -28,11 +28,11 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; Per-user install: no UAC prompt ("simple and quick"), and the per-user
-; autostart (HKCU) + %APPDATA% data line up correctly. Users may still elect a
-; machine-wide install via the dialog if they want.
+; Per-user install only: no UAC prompt, installs to a user-writable folder
+; (%LOCALAPPDATA%\Programs\SuperWin) so the in-app self-updater can replace files
+; without admin rights. (Machine-wide installs in Program Files would block
+; updates -- hence no override here.)
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

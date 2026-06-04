@@ -5,11 +5,11 @@
 
 #define SUPERWIN_VERSION_MAJOR 2
 #define SUPERWIN_VERSION_MINOR 3
-#define SUPERWIN_VERSION_PATCH 0
+#define SUPERWIN_VERSION_PATCH 2
 
 // Comma form for VERSIONINFO (FILEVERSION / PRODUCTVERSION).
-#define SUPERWIN_VERSION_RC 2, 3, 0, 0
+#define SUPERWIN_VERSION_RC 2, 3, 2, 0
 
-// String form for display / WinSparkle / the installer.
-#define SUPERWIN_VERSION_STRING "2.3.0"
-#define SUPERWIN_VERSION_WSTRING L"2.3.0"
+// String form for display / the installer / the self-updater.
+#define SUPERWIN_VERSION_STRING "2.3.2"
+#define SUPERWIN_VERSION_WSTRING L"2.3.2"

@@ -42,6 +42,7 @@ add_library(superwin_core STATIC
     src/modules/jsonfmt/JsonLogic.cpp
     src/modules/guid/GuidLogic.cpp
     src/modules/graph/GraphLogic.cpp
+    src/modules/graph/Expr.cpp
     src/modules/security/SecurityLogic.cpp
 )
 target_include_directories(superwin_core PUBLIC src)
@@ -70,6 +71,7 @@ if (SUPERWIN_BUILD_TESTS)
         tests/JsonLogicTests.cpp
         tests/GuidLogicTests.cpp
         tests/GraphLogicTests.cpp
+        tests/ExprTests.cpp
         tests/SecurityLogicTests.cpp
     )
     target_link_libraries(SuperWin_tests PRIVATE superwin_core Catch2::Catch2WithMain)
@@ -101,20 +103,14 @@ add_executable(SuperWin WIN32 ${SUPERWIN_APP_SOURCES})
 target_link_libraries(SuperWin PRIVATE superwin_core Comctl32)
 set_target_properties(SuperWin PROPERTIES OUTPUT_NAME "SuperWin")
 
-# ---- Version resource + WinSparkle auto-updater (always built into the app) ----
+# ---- Version resource + built-in self-updater (WinHTTP; no third-party dep) ----
 target_sources(SuperWin PRIVATE src/version.rc src/core/Updater.cpp)
-
-set(WINSPARKLE_DIR "${CMAKE_SOURCE_DIR}/third_party/winsparkle")
-target_include_directories(SuperWin PRIVATE "${WINSPARKLE_DIR}/include")
-target_link_libraries(SuperWin PRIVATE "${WINSPARKLE_DIR}/x64/WinSparkle.lib")
+target_link_libraries(SuperWin PRIVATE winhttp)
 add_custom_command(TARGET SuperWin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${WINSPARKLE_DIR}/x64/WinSparkle.dll"
-        "$<TARGET_FILE_DIR:SuperWin>/WinSparkle.dll"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/assets/SuperWin.ico"
         "$<TARGET_FILE_DIR:SuperWin>/SuperWin.ico"
-    COMMENT "Deploying WinSparkle.dll + app icon next to SuperWin.exe")
+    COMMENT "Deploying app icon next to SuperWin.exe")
 
 if (SUPERWIN_ENABLE_WINUI)
     target_compile_definitions(SuperWin PRIVATE SUPERWIN_ENABLE_WINUI=1)
@@ -143,6 +139,7 @@ if (SUPERWIN_ENABLE_WINUI)
         src/modules/guid/GuidPage.cpp
         src/modules/graph/GraphPage.cpp
         src/modules/security/SecurityPage.cpp
+        src/modules/alwaystop/AlwaysOnTopPage.cpp
     )
     set_property(TARGET SuperWin PROPERTY VS_PACKAGE_REFERENCES
         "Microsoft.Windows.CppWinRT_2.0.250303.1"

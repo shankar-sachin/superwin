@@ -24,6 +24,52 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.3.2</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.3.2</h2>
+        <ul>
+          <li><b>Seamless updates:</b> SuperWin now updates itself in place (download + restart) —
+              no installer window and no admin rights required.</li>
+          <li><b>Graphing Calculator + CAS, leveled up:</b> a live <b>pretty-math preview</b>
+              (x², √, ·) under each function, and per-function <b>d/dx</b>, <b>∫ dx</b> and
+              <b>simplify</b>, plus a numeric <b>definite-integral</b> panel.</li>
+          <li>Always On Top, grouped tools, fixed-size wrapping tiles, and the polished
+              mini-monitor from recent releases.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Wed, 03 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.3.2/SuperWin_v2.3.2_portable.zip"
+        sparkle:version="2.3.2"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
+      <title>SuperWin 2.3.1</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.3.1</h2>
+        <ul>
+          <li><b>Graphing Calculator, reimagined (Desmos-style):</b> plot multiple colour-coded
+              functions, drag to pan, scroll to zoom, with a labelled grid and axes.</li>
+          <li><b>Built-in CAS:</b> a symbolic engine evaluates, <b>differentiates</b> (d/dx) and
+              <b>simplifies</b> expressions — hit <i>d/dx</i> on any function to plot its derivative.</li>
+          <li><b>Always On Top is now a tool:</b> assign a global hotkey (default Ctrl+Win+T) to
+              pin/unpin <i>any</i> focused window above everything else.</li>
+          <li>Quick access tiles keep a fixed size and wrap to new rows instead of stretching.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Wed, 03 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.3.1/SuperWin_v2.3.1.exe"
+        sparkle:version="2.3.1"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.3.0</title>
       <description><![CDATA[
         <h2>SuperWin 2.3.0</h2>

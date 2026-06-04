@@ -137,8 +137,9 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     item(L"Diagnostics",       0xE9D9, L"diagnostics");
     item(L"Network Info",      0xE968, L"netinfo");
     item(L"Keep Awake",        0xE945, L"keepawake");
+    item(L"Always On Top",     0xE840, L"alwaystop");
 
-    header(L"Clipboard & Notes");
+    header(L"Clipboard & Notepad");
     item(L"Clipboard",     0xE8C8, L"clipboard");
     item(L"Notepad Super", 0xE70F, L"notepad");
     item(L"Text Tools",    0xE8D2, L"text");
@@ -153,8 +154,8 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     item(L"Graphing Calculator", 0xE9D2, L"graph");
 
     header(L"Security & Privacy");
-    item(L"Password Generator", 0xE8D7, L"password");
     item(L"Security & Privacy", 0xEA18, L"security");
+    item(L"Password Generator", 0xE8D7, L"password");
 
     header(L"Media");
     item(L"Color Picker", 0xE790, L"colorpicker");
@@ -247,6 +248,8 @@ IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
         page = MakeGraphPage();
     } else if (tag == L"security") {
         page = MakeSecurityPage();
+    } else if (tag == L"alwaystop") {
+        page = MakeAlwaysOnTopPage(host_);
     } else if (tag == L"settings") {
         page = MakeSettingsPage(this, host_);
     }

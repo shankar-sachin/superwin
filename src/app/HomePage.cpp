@@ -37,8 +37,8 @@ winrt::Button Tile(winrt::hstring name, wchar_t glyph, winrt::hstring tag,
 
     winrt::Button b;
     b.Content(col);
-    b.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
-    b.MinWidth(150);
+    b.HorizontalAlignment(winrt::HorizontalAlignment::Left);
+    b.Width(150);
     b.Height(104);
     b.CornerRadius(winrt::CornerRadius{8, 8, 8, 8});
     b.Click([navigate, tag](winrt::Windows::Foundation::IInspectable const&,
@@ -48,15 +48,17 @@ winrt::Button Tile(winrt::hstring name, wchar_t glyph, winrt::hstring tag,
     return b;
 }
 
-// Lays the tiles out in a grid whose column count adapts to the available width;
-// the columns are star-sized, so the tiles snap and fill each row edge-to-edge.
+// Lays the tiles out left-to-right in fixed-size cells, wrapping to a new row
+// only when they no longer fit the available width. Tiles keep their size — extra
+// width is left as empty space rather than stretching the icons.
 winrt::Grid TileGrid(std::vector<winrt::Button> tiles) {
-    constexpr double kTileMin = 150.0;
+    constexpr double kTileW = 150.0;
     constexpr double kGap = 12.0;
 
     winrt::Grid grid;
     grid.ColumnSpacing(kGap);
     grid.RowSpacing(kGap);
+    grid.HorizontalAlignment(winrt::HorizontalAlignment::Left);
 
     auto state = std::make_shared<std::vector<winrt::Button>>(std::move(tiles));
     auto lastCols = std::make_shared<int>(0);
@@ -64,7 +66,7 @@ winrt::Grid TileGrid(std::vector<winrt::Button> tiles) {
     auto relayout = [grid, state, lastCols](double width) {
         const int n = static_cast<int>(state->size());
         if (n == 0) return;
-        int cols = static_cast<int>((width + kGap) / (kTileMin + kGap));
+        int cols = static_cast<int>((width + kGap) / (kTileW + kGap));
         if (cols < 1) cols = 1;
         if (cols > n) cols = n;
         if (cols == *lastCols) return;  // nothing to re-flow
@@ -75,7 +77,7 @@ winrt::Grid TileGrid(std::vector<winrt::Button> tiles) {
         grid.RowDefinitions().Clear();
         for (int c = 0; c < cols; ++c) {
             winrt::ColumnDefinition cd;
-            cd.Width(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+            cd.Width(winrt::GridLengthHelper::FromPixels(kTileW));  // fixed, no stretch
             grid.ColumnDefinitions().Append(cd);
         }
         const int rows = (n + cols - 1) / cols;
@@ -132,6 +134,7 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
             t.push_back(Tile(L"Diagnostics", 0xE9D9, L"diagnostics", navigate));
             t.push_back(Tile(L"Network\nInfo", 0xE968, L"netinfo", navigate));
             t.push_back(Tile(L"Keep\nAwake", 0xE945, L"keepawake", navigate));
+            t.push_back(Tile(L"Always\nOn Top", 0xE840, L"alwaystop", navigate));
             group(L"System", std::move(t));
         }
         {
@@ -139,7 +142,7 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
             t.push_back(Tile(L"Clipboard", 0xE8C8, L"clipboard", navigate));
             t.push_back(Tile(L"Notepad\nSuper", 0xE70F, L"notepad", navigate));
             t.push_back(Tile(L"Text\nTools", 0xE8D2, L"text", navigate));
-            group(L"Clipboard & Notes", std::move(t));
+            group(L"Clipboard & Notepad", std::move(t));
         }
         {
             std::vector<winrt::Button> t;
@@ -156,8 +159,8 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
         }
         {
             std::vector<winrt::Button> t;
-            t.push_back(Tile(L"Password\nGenerator", 0xE8D7, L"password", navigate));
             t.push_back(Tile(L"Security &\nPrivacy", 0xEA18, L"security", navigate));
+            t.push_back(Tile(L"Password\nGenerator", 0xE8D7, L"password", navigate));
             group(L"Security & Privacy", std::move(t));
         }
         {

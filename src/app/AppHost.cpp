@@ -33,6 +33,7 @@ AppHost::AppHost() {
     picker_ = std::make_unique<ClipPicker>();
     hotkeys_ = std::make_unique<HotkeyManager>(hwnd_);
     ReRegisterHotkey();
+    ReRegisterAlwaysOnTopHotkey();
 
     ::AddClipboardFormatListener(hwnd_);
 }
@@ -59,6 +60,25 @@ void AppHost::OnHotkey() {
     // picker can paste back into it.
     HWND previous = ::GetForegroundWindow();
     if (picker_) picker_->Show(previous);
+}
+
+bool AppHost::ReRegisterAlwaysOnTopHotkey() {
+    if (!hotkeys_) return false;
+    const std::string combo =
+        Settings::Instance().GetString("alwaysOnTop.hotkey", "Ctrl+Win+T");
+    aotHotkeyActive_ = hotkeys_->Register("alwaysontop", ParseHotkey(combo), [this] { OnAlwaysOnTopHotkey(); });
+    return aotHotkeyActive_;
+}
+
+void AppHost::OnAlwaysOnTopHotkey() {
+    // Toggle the always-on-top state of whatever window currently has focus.
+    HWND target = ::GetForegroundWindow();
+    if (!target) return;
+    const bool pinned = pinned_.count(target) != 0;
+    ::SetWindowPos(target, pinned ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    if (pinned) pinned_.erase(target); else pinned_.insert(target);
+    ::MessageBeep(MB_OK);  // light audible confirmation
 }
 
 void AppHost::OnClipboardUpdate() {

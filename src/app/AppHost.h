@@ -14,6 +14,7 @@
 #include <Windows.h>
 
 #include <memory>
+#include <unordered_set>
 
 namespace superwin {
 
@@ -37,15 +38,23 @@ public:
     // Whether the last hotkey (re)registration succeeded.
     bool HotkeyActive() const { return hotkeyActive_; }
 
+    // Re-read alwaysOnTop.hotkey from Settings and (re)register the global
+    // "pin the foreground window" hotkey. Returns false if it is rejected.
+    bool ReRegisterAlwaysOnTopHotkey();
+    bool AlwaysOnTopHotkeyActive() const { return aotHotkeyActive_; }
+
 private:
     static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
     void OnHotkey();
+    void OnAlwaysOnTopHotkey();
     void OnClipboardUpdate();
 
     HWND                           hwnd_ = nullptr;
     std::unique_ptr<HotkeyManager> hotkeys_;
     std::unique_ptr<ClipPicker>    picker_;
     bool                           hotkeyActive_ = false;
+    bool                           aotHotkeyActive_ = false;
+    std::unordered_set<HWND>       pinned_;  // windows we've pinned on top
 };
 
 }  // namespace superwin

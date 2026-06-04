@@ -44,6 +44,8 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
 // Settings needs the shell (theme, navigation) and host (hotkey re-registration).
 class Shell;
 std::unique_ptr<IModulePage> MakeSettingsPage(Shell* shell, AppHost* host);
+// Always On Top tool needs the host to own/assign its global pin hotkey.
+std::unique_ptr<IModulePage> MakeAlwaysOnTopPage(AppHost* host);
 
 class Shell {
 public:
