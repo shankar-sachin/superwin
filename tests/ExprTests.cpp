@@ -134,6 +134,24 @@ TEST_CASE("Typed integral graphs an antiderivative", "[Expr][CAS][calc]") {
     }
 }
 
+TEST_CASE("Summations and products evaluate", "[Expr][CAS][series]") {
+    // Pure-index series (no x): constant everywhere.
+    REQUIRE_THAT(P("sum(n, 1, 5)").eval(0.0),  WithinAbs(15.0, 1e-9));   // 1+2+3+4+5
+    REQUIRE_THAT(P("prod(n, 1, 4)").eval(0.0), WithinAbs(24.0, 1e-9));   // 4!
+    // Series in x.
+    REQUIRE_THAT(P("sum(x^n, 0, 3)").eval(2.0), WithinAbs(15.0, 1e-9));  // 1+2+4+8
+    REQUIRE_THAT(P("sum(x*n, 1, 3)").eval(2.0), WithinAbs(12.0, 1e-9));  // 2*(1+2+3)
+    for (double x : {0.5, 1.3, 2.1}) {
+        const double want = x + x * x / 2 + x * x * x / 3;
+        REQUIRE_THAT(P("sum(x^n/n, 1, 3)").eval(x), WithinAbs(want, 1e-9));
+    }
+}
+
+TEST_CASE("Derivative of a summation is the summation of derivatives", "[Expr][CAS][series]") {
+    // d/dx Σ_{n=1}^{3} x^n = Σ n·x^(n-1); at x=2 -> 1 + 4 + 12 = 17.
+    REQUIRE_THAT(P("d/dx(sum(x^n, 1, 3))").eval(2.0), WithinAbs(17.0, 1e-6));
+}
+
 TEST_CASE("Typed integral falls back to numeric antiderivative", "[Expr][CAS][calc]") {
     // exp(x^2) has no elementary antiderivative -> NumInt node, F(x)=∫₀ˣ f dt.
     Expr g = P("int(exp(x^2))");

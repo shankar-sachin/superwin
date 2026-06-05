@@ -10,15 +10,19 @@
 
 namespace superwin {
 
-// NumInt is a numeric antiderivative F(x) = ∫₀ˣ a dt, used when the typed ∫
-// operator has no closed form we can produce symbolically.
-enum class Kind { Const, Var, Add, Sub, Mul, Div, Pow, Neg, Func, NumInt };
+// Special nodes beyond the elementary grammar:
+//  * NumInt   - numeric antiderivative F(x) = ∫₀ˣ a dt (when ∫ has no closed form)
+//  * NumDeriv - numeric derivative d/dx a (when we can't differentiate symbolically)
+//  * IndexVar - the bound summation/product index `n`
+//  * Sum/Prod - Σ / Π of `a` with the index running b..c
+enum class Kind { Const, Var, Add, Sub, Mul, Div, Pow, Neg, Func,
+                  NumInt, NumDeriv, IndexVar, Sum, Prod };
 
 struct ExprNode {
     Kind kind;
     double value = 0;             // Const
     std::string func;            // Func name
-    std::shared_ptr<const ExprNode> a, b;  // operands
+    std::shared_ptr<const ExprNode> a, b, c;  // operands (c only for Sum/Prod bounds)
 };
 
 namespace {
@@ -28,6 +32,11 @@ using NodeP = std::shared_ptr<const ExprNode>;
 NodeP Make(Kind k, double v, std::string fn, NodeP a, NodeP b) {
     auto n = std::make_shared<ExprNode>();
     n->kind = k; n->value = v; n->func = std::move(fn); n->a = std::move(a); n->b = std::move(b);
+    return n;
+}
+NodeP MakeSeries(Kind k, NodeP body, NodeP lo, NodeP hi) {
+    auto n = std::make_shared<ExprNode>();
+    n->kind = k; n->a = std::move(body); n->b = std::move(lo); n->c = std::move(hi);
     return n;
 }
 
@@ -114,6 +123,10 @@ NodeP Fn(std::string f, NodeP a) {
     return Make(Kind::Func, 0, std::move(f), std::move(a), nullptr);
 }
 NodeP NumInt(NodeP a) { return Make(Kind::NumInt, 0, "", std::move(a), nullptr); }
+NodeP NumDeriv(NodeP a) { return Make(Kind::NumDeriv, 0, "", std::move(a), nullptr); }
+NodeP IndexVar() { return Make(Kind::IndexVar, 0, "", nullptr, nullptr); }
+NodeP Sum(NodeP body, NodeP lo, NodeP hi) { return MakeSeries(Kind::Sum, std::move(body), std::move(lo), std::move(hi)); }
+NodeP Prod(NodeP body, NodeP lo, NodeP hi) { return MakeSeries(Kind::Prod, std::move(body), std::move(lo), std::move(hi)); }
 
 // CAS transforms, defined further below but needed by the parser so typed
 // d/dx(...) and int(...) resolve at parse time into ordinary AST nodes.
@@ -168,6 +181,16 @@ private:
     NodeP MakeIntegralFrom(NodeP inner) {
         NodeP r = Integrate(inner);
         return r ? Simplify(r) : NumInt(std::move(inner));
+    }
+    NodeP ParseSeries(Kind k) {  // "(" body "," lo "," hi ")"
+        if (!Eat('(')) throw std::runtime_error("expected '(' ");
+        NodeP body = Expr();
+        if (!Eat(',')) throw std::runtime_error("expected ',' (sum/prod take body, lo, hi)");
+        NodeP lo = Expr();
+        if (!Eat(',')) throw std::runtime_error("expected ',' (sum/prod take body, lo, hi)");
+        NodeP hi = Expr();
+        if (!Eat(')')) throw std::runtime_error("missing ')'");
+        return MakeSeries(k, std::move(body), std::move(lo), std::move(hi));
     }
 
     NodeP Expr() {
@@ -238,10 +261,13 @@ private:
         while (pos_ < s_.size() && std::isalpha(static_cast<unsigned char>(s_[pos_]))) ++pos_;
         std::string id = s_.substr(start, pos_ - start);
         if (id == "x") return Var();
+        if (id == "n" || id == "k") return IndexVar();  // summation / product index
         if (id == "pi") return C(kPi);
         if (id == "e") return C(kE);
         if (id == "deriv" || id == "derivative") return MakeDerivFrom(ParseCallArg());
         if (id == "int" || id == "integral") { NodeP a = ParseCallArg(); MatchBytes("dx"); return MakeIntegralFrom(a); }
+        if (id == "sum") return ParseSeries(Kind::Sum);
+        if (id == "prod") return ParseSeries(Kind::Prod);
         if (!Eat('(')) throw std::runtime_error("unknown name '" + id + "'");
         NodeP arg = Expr();
         if (!Eat(')')) throw std::runtime_error("missing ')' after " + id);
@@ -256,26 +282,46 @@ private:
     }
 };
 
-double Eval(const NodeP& n, double x) {
+// `idx` carries the current summation/product index value (NaN outside a Σ/Π).
+double Eval(const NodeP& n, double x, double idx) {
     switch (n->kind) {
         case Kind::Const: return n->value;
         case Kind::Var:   return x;
-        case Kind::Neg:   return -Eval(n->a, x);
-        case Kind::Add:   return Eval(n->a, x) + Eval(n->b, x);
-        case Kind::Sub:   return Eval(n->a, x) - Eval(n->b, x);
-        case Kind::Mul:   return Eval(n->a, x) * Eval(n->b, x);
-        case Kind::Div:   return Eval(n->a, x) / Eval(n->b, x);
-        case Kind::Pow:   return std::pow(Eval(n->a, x), Eval(n->b, x));
-        case Kind::Func:  return ApplyFunc(n->func, Eval(n->a, x));
+        case Kind::IndexVar: return idx;
+        case Kind::Neg:   return -Eval(n->a, x, idx);
+        case Kind::Add:   return Eval(n->a, x, idx) + Eval(n->b, x, idx);
+        case Kind::Sub:   return Eval(n->a, x, idx) - Eval(n->b, x, idx);
+        case Kind::Mul:   return Eval(n->a, x, idx) * Eval(n->b, x, idx);
+        case Kind::Div:   return Eval(n->a, x, idx) / Eval(n->b, x, idx);
+        case Kind::Pow:   return std::pow(Eval(n->a, x, idx), Eval(n->b, x, idx));
+        case Kind::Func:  return ApplyFunc(n->func, Eval(n->a, x, idx));
         case Kind::NumInt: {  // F(x) = ∫₀ˣ a dt via composite Simpson's rule
             double lo = 0, hi = x, sign = 1;
             if (hi == lo) return 0;
             if (hi < lo) { std::swap(lo, hi); sign = -1; }
             const int N = 200;  // even
             const double h = (hi - lo) / N;
-            double s = Eval(n->a, lo) + Eval(n->a, hi);
-            for (int i = 1; i < N; ++i) s += (i & 1 ? 4 : 2) * Eval(n->a, lo + i * h);
+            double s = Eval(n->a, lo, idx) + Eval(n->a, hi, idx);
+            for (int i = 1; i < N; ++i) s += (i & 1 ? 4 : 2) * Eval(n->a, lo + i * h, idx);
             return sign * s * h / 3.0;
+        }
+        case Kind::NumDeriv: {  // central difference d/dx a
+            const double h = 1e-6;
+            return (Eval(n->a, x + h, idx) - Eval(n->a, x - h, idx)) / (2 * h);
+        }
+        case Kind::Sum:
+        case Kind::Prod: {
+            const double dlo = Eval(n->b, x, idx), dhi = Eval(n->c, x, idx);
+            if (!std::isfinite(dlo) || !std::isfinite(dhi)) return std::nan("");
+            const long long lo = static_cast<long long>(std::llround(dlo));
+            const long long hi = static_cast<long long>(std::llround(dhi));
+            if (hi - lo > 1000000) return std::nan("");  // guard runaway ranges
+            double acc = (n->kind == Kind::Sum) ? 0.0 : 1.0;
+            for (long long i = lo; i <= hi; ++i) {
+                const double term = Eval(n->a, x, static_cast<double>(i));
+                if (n->kind == Kind::Sum) acc += term; else acc *= term;
+            }
+            return acc;
         }
     }
     return std::nan("");
@@ -311,7 +357,11 @@ NodeP Deriv(const NodeP& n) {
         case Kind::Mul:   return Add(Mul(Deriv(n->a), n->b), Mul(n->a, Deriv(n->b)));
         case Kind::Div:   return Div(Sub(Mul(Deriv(n->a), n->b), Mul(n->a, Deriv(n->b))), Pow(n->b, C(2)));
         case Kind::Func:  return Mul(DFunc(n->func, n->a), Deriv(n->a));
-        case Kind::NumInt: return n->a;  // d/dx ∫₀ˣ a dt = a
+        case Kind::NumInt: return n->a;        // d/dx ∫₀ˣ a dt = a
+        case Kind::IndexVar: return C(0);      // constant wrt x
+        case Kind::Sum:   return Sum(Deriv(n->a), n->b, n->c);  // d/dx Σ = Σ d/dx (limits const)
+        case Kind::Prod:
+        case Kind::NumDeriv: return NumDeriv(n);  // fall back to a numeric derivative
         case Kind::Pow: {
             const NodeP& u = n->a; const NodeP& v = n->b;
             double cv, cu;
@@ -336,6 +386,10 @@ NodeP Simplify(const NodeP& n) {
         case Kind::Pow:   return Pow(Simplify(n->a), Simplify(n->b));
         case Kind::Func:  return Fn(n->func, Simplify(n->a));
         case Kind::NumInt: return NumInt(Simplify(n->a));
+        case Kind::NumDeriv: return NumDeriv(Simplify(n->a));
+        case Kind::IndexVar: return n;
+        case Kind::Sum:   return Sum(Simplify(n->a), Simplify(n->b), Simplify(n->c));
+        case Kind::Prod:  return Prod(Simplify(n->a), Simplify(n->b), Simplify(n->c));
     }
     return n;
 }
@@ -385,7 +439,11 @@ NodeP Integrate(const NodeP& n) {
             if (f == "cosh") return Fn("sinh", Var());
             return nullptr;
         }
-        case Kind::NumInt: return nullptr;  // don't double-integrate
+        case Kind::NumInt:
+        case Kind::NumDeriv:
+        case Kind::IndexVar:
+        case Kind::Sum:
+        case Kind::Prod: return nullptr;  // fall back to numeric ∫
     }
     return nullptr;
 }
@@ -395,7 +453,11 @@ int Prec(const NodeP& n) {
         case Kind::Const: return n->value < 0 ? 3 : 4;
         case Kind::Var:
         case Kind::Func:
-        case Kind::NumInt: return 4;
+        case Kind::NumInt:
+        case Kind::NumDeriv:
+        case Kind::IndexVar:
+        case Kind::Sum:
+        case Kind::Prod:  return 4;
         case Kind::Pow:
         case Kind::Neg:   return 3;
         case Kind::Mul:
@@ -426,6 +488,10 @@ std::string Raw(const NodeP& n) {
         case Kind::Pow:   return Str(n->a, 4) + "^" + Str(n->b, 3);
         case Kind::Func:  return n->func + "(" + Str(n->a, 0) + ")";
         case Kind::NumInt: return "int(" + Str(n->a, 0) + ")";  // re-parseable ASCII
+        case Kind::NumDeriv: return "deriv(" + Str(n->a, 0) + ")";
+        case Kind::IndexVar: return "n";
+        case Kind::Sum:   return "sum(" + Str(n->a, 0) + ", " + Str(n->b, 0) + ", " + Str(n->c, 0) + ")";
+        case Kind::Prod:  return "prod(" + Str(n->a, 0) + ", " + Str(n->b, 0) + ", " + Str(n->c, 0) + ")";
     }
     return "?";
 }
@@ -470,6 +536,10 @@ std::string PrettyRaw(const NodeP& n) {
             if (n->func == "sqrt") return "√" + Pretty(n->a, 3);
             return n->func + "(" + Pretty(n->a, 0) + ")";
         case Kind::NumInt: return "∫(" + Pretty(n->a, 0) + ")dx";
+        case Kind::NumDeriv: return "d/dx(" + Pretty(n->a, 0) + ")";
+        case Kind::IndexVar: return "n";
+        case Kind::Sum:   return "Σ[n=" + Pretty(n->b, 0) + ".." + Pretty(n->c, 0) + "] " + Pretty(n->a, 4);
+        case Kind::Prod:  return "Π[n=" + Pretty(n->b, 0) + ".." + Pretty(n->c, 0) + "] " + Pretty(n->a, 4);
     }
     return "?";
 }
@@ -481,7 +551,7 @@ std::string Pretty(const NodeP& n, int threshold) {
 
 }  // namespace
 
-double Expr::eval(double x) const { return node_ ? Eval(node_, x) : std::nan(""); }
+double Expr::eval(double x) const { return node_ ? Eval(node_, x, std::nan("")) : std::nan(""); }
 Expr Expr::derivative() const { return node_ ? Expr(Deriv(node_)) : Expr(); }
 Expr Expr::integral() const {
     if (!node_) return Expr();

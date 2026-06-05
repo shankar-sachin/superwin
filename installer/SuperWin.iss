@@ -8,7 +8,7 @@
 ;  see the [Files] section paths below.)
 
 #define AppName "SuperWin"
-#define AppVersion "2.3.3"
+#define AppVersion "2.3.5"
 #define AppPublisher "SuperWin"
 #define AppExe "SuperWin.exe"
 

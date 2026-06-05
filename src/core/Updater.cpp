@@ -77,6 +77,49 @@ std::string Attr(const std::string& xml, const std::string& key) {
     return q == std::string::npos ? std::string() : xml.substr(p, q - p);
 }
 
+// Plain-text release notes from the first <item>'s CDATA <description>, so the
+// update prompt can show "what's new" per release.
+std::wstring FirstItemNotes(const std::string& xml) {
+    const auto item = xml.find("<item>");
+    if (item == std::string::npos) return {};
+    const auto cd = xml.find("<![CDATA[", item);
+    if (cd == std::string::npos) return {};
+    const auto start = cd + 9;
+    const auto end = xml.find("]]>", start);
+    if (end == std::string::npos) return {};
+    std::string html = xml.substr(start, end - start);
+
+    // Turn list items into bullets, then strip the remaining tags.
+    std::string text;
+    text.reserve(html.size());
+    for (size_t i = 0; i < html.size();) {
+        if (html[i] == '<') {
+            const auto close = html.find('>', i);
+            const std::string tag = html.substr(i, close == std::string::npos ? 0 : close - i + 1);
+            if (tag.rfind("<li", 0) == 0) text += "\n  \xE2\x80\xA2 ";  // • bullet
+            else if (tag.rfind("</ul", 0) == 0 || tag.rfind("</h", 0) == 0) text += "\n";
+            i = (close == std::string::npos) ? html.size() : close + 1;
+        } else {
+            text += html[i++];
+        }
+    }
+    // Decode the handful of entities we actually emit.
+    auto replace = [](std::string& s, const std::string& a, const std::string& b) {
+        for (size_t p = s.find(a); p != std::string::npos; p = s.find(a, p + b.size())) s.replace(p, a.size(), b);
+    };
+    replace(text, "&amp;", "&"); replace(text, "&lt;", "<"); replace(text, "&gt;", ">");
+    // Collapse runs of blank lines / leading whitespace for a tidy message box.
+    std::string out; bool lastNl = false;
+    for (char c : text) {
+        if (c == '\r') continue;
+        if (c == '\n') { if (!lastNl && !out.empty()) out += '\n'; lastNl = true; }
+        else { out += c; lastNl = false; }
+    }
+    while (!out.empty() && (out.front() == '\n' || out.front() == ' ')) out.erase(out.begin());
+    if (out.size() > 1200) out = out.substr(0, 1200) + "\xE2\x80\xA6";
+    return Utf8ToWide(out);
+}
+
 std::array<int, 4> ParseVersion(const std::string& v) {
     std::array<int, 4> out{0, 0, 0, 0};
     int idx = 0; size_t i = 0;
@@ -98,8 +141,8 @@ bool IsNewer(const std::string& candidate, const std::string& current) {
 std::wstring SelfExe() { wchar_t b[MAX_PATH]; ::GetModuleFileNameW(nullptr, b, MAX_PATH); return b; }
 std::wstring DirOf(const std::wstring& p) { auto i = p.find_last_of(L"\\/"); return i == std::wstring::npos ? L"." : p.substr(0, i); }
 
-// Check the feed. Returns true and fills the latest version + zip URL on success.
-bool Check(std::string& version, std::wstring& zipUrl) {
+// Check the feed. Returns true and fills the latest version + zip URL + notes.
+bool Check(std::string& version, std::wstring& zipUrl, std::wstring& notes) {
     const std::string url = Settings::Instance().GetString("update.appcastUrl", kDefaultAppcastUrl);
     const std::string xml = HttpGet(Utf8ToWide(url));
     if (xml.empty()) return false;
@@ -107,6 +150,7 @@ bool Check(std::string& version, std::wstring& zipUrl) {
     const std::string enc = Attr(xml, "url=\"");  // first enclosure (latest item)
     if (version.empty() || enc.empty()) return false;
     zipUrl = Utf8ToWide(enc);
+    notes = FirstItemNotes(xml);
     return true;
 }
 
@@ -120,21 +164,37 @@ void ApplyUpdate(const std::wstring& zipUrl) {
 
     // ASCII-only script; the exe/dir/url come in as parameters (so any Unicode in
     // the install path is passed safely on the command line, not embedded here).
+    // The helper ALWAYS relaunches the app (finally block) even if the download or
+    // copy fails, so an update error can never leave the user with a closed app.
+    // Failures are logged to %TEMP%\superwin_update.log for diagnosis.
     std::ofstream f(script, std::ios::binary | std::ios::trunc);
     f <<
         "param($url,$dir,$exe,$ppid)\n"
-        "$ErrorActionPreference='Stop'\n"
+        "$log = Join-Path $env:TEMP 'superwin_update.log'\n"
+        "function L($m){ try { Add-Content -Path $log -Value ((Get-Date).ToString('s')+' '+$m) } catch {} }\n"
         "try { Wait-Process -Id $ppid -Timeout 60 } catch {}\n"
-        "Start-Sleep -Milliseconds 400\n"
-        "$tmp = Join-Path $env:TEMP ('superwin_upd_' + [guid]::NewGuid())\n"
-        "New-Item -ItemType Directory -Force $tmp | Out-Null\n"
-        "$zip = Join-Path $tmp 'pkg.zip'\n"
-        "Invoke-WebRequest -Uri $url -OutFile $zip\n"
-        "$ex = Join-Path $tmp 'x'\n"
-        "Expand-Archive -Path $zip -DestinationPath $ex -Force\n"
-        "Copy-Item -Path (Join-Path $ex '*') -Destination $dir -Recurse -Force\n"
-        "Start-Process -FilePath $exe\n"
-        "Remove-Item -Recurse -Force $tmp\n";
+        "Start-Sleep -Milliseconds 500\n"
+        "$tmp = $null\n"
+        "try {\n"
+        "  $tmp = Join-Path $env:TEMP ('superwin_upd_' + [guid]::NewGuid())\n"
+        "  New-Item -ItemType Directory -Force $tmp | Out-Null\n"
+        "  $zip = Join-Path $tmp 'pkg.zip'\n"
+        "  L \"downloading $url\"\n"
+        "  Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing\n"
+        "  $ex = Join-Path $tmp 'x'\n"
+        "  Expand-Archive -Path $zip -DestinationPath $ex -Force\n"
+        "  $top = @(Get-ChildItem -Force $ex)\n"
+        "  $src = $ex\n"
+        "  if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $src = $top[0].FullName }\n"
+        "  L \"copying $src -> $dir\"\n"
+        "  Copy-Item -Path (Join-Path $src '*') -Destination $dir -Recurse -Force\n"
+        "  L 'update applied'\n"
+        "} catch {\n"
+        "  L (\"ERROR: \" + $_.Exception.Message)\n"
+        "} finally {\n"
+        "  try { Start-Process -FilePath $exe } catch { L (\"relaunch failed: \" + $_.Exception.Message) }\n"
+        "  try { if ($tmp) { Remove-Item -Recurse -Force $tmp } } catch {}\n"
+        "}\n";
     f.close();
 
     std::wstring args = L"-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"" + script +
@@ -144,9 +204,10 @@ void ApplyUpdate(const std::wstring& zipUrl) {
     ::ExitProcess(0);  // let the helper swap our files and relaunch us
 }
 
-void Prompt(const std::string& version, const std::wstring& zipUrl) {
-    const std::wstring msg = L"SuperWin " + Utf8ToWide(version) +
-        L" is available.\n\nUpdate now? SuperWin will briefly close and reopen on the new version.";
+void Prompt(const std::string& version, const std::wstring& zipUrl, const std::wstring& notes) {
+    std::wstring msg = L"SuperWin " + Utf8ToWide(version) + L" is available.";
+    if (!notes.empty()) msg += L"\n\nWhat's new:\n" + notes;
+    msg += L"\n\nUpdate now? SuperWin will briefly close and reopen on the new version.";
     if (::MessageBoxW(nullptr, msg.c_str(), L"SuperWin update",
                       MB_YESNO | MB_ICONINFORMATION) == IDYES) {
         ApplyUpdate(zipUrl);
@@ -163,20 +224,20 @@ void Updater::Initialize() {
     // Quiet background check shortly after launch.
     std::thread([] {
         std::this_thread::sleep_for(std::chrono::seconds(6));
-        std::string ver; std::wstring zip;
-        if (Check(ver, zip) && IsNewer(ver, SUPERWIN_VERSION_STRING)) Prompt(ver, zip);
+        std::string ver; std::wstring zip, notes;
+        if (Check(ver, zip, notes) && IsNewer(ver, SUPERWIN_VERSION_STRING)) Prompt(ver, zip, notes);
     }).detach();
 }
 
 void Updater::CheckNow() {
-    std::string ver; std::wstring zip;
-    if (!Check(ver, zip)) {
+    std::string ver; std::wstring zip, notes;
+    if (!Check(ver, zip, notes)) {
         ::MessageBoxW(nullptr, L"Couldn't reach the update server. Are you connected to the internet?",
                       L"SuperWin", MB_OK | MB_ICONWARNING);
         return;
     }
     if (IsNewer(ver, SUPERWIN_VERSION_STRING)) {
-        Prompt(ver, zip);
+        Prompt(ver, zip, notes);
     } else {
         ::MessageBoxW(nullptr, L"You're on the latest version of SuperWin.",
                       L"SuperWin", MB_OK | MB_ICONINFORMATION);

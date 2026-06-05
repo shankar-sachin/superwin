@@ -1,4 +1,4 @@
-# SuperWin v2.3.3
+# SuperWin v2.3.5
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
@@ -21,11 +21,11 @@ self-contained deployment, and automatic updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.3.3/SuperWin_v2.3.3.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.3.5/SuperWin_v2.3.5.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.3.3.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.3.5.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -76,9 +76,9 @@ update. It then downloads a portable build into your user folder, swaps the file
 - **Graphing Calculator** — a **Desmos-style** plotter with a **live math field**: type with
   plain `^ * / sqrt pi` and the input box itself beautifies as you go (`x^2`→`x²`, `*`→`·`, plus
   `√`, `π`, `−`) — the field *is* the pretty equation, no preview line. **Type calculus right
-  into the equation** — `d/dx(...)`, `deriv(...)`, `int(...)`, `integral(...)` or `∫(...)dx`
-  (nested and mixed expressions too) — and it graphs the result, with a numeric antiderivative
-  fallback when there's no closed form. Multiple colour-coded curves with legend swatches to
+  into the equation** — `d/dx(...)`, `deriv(...)`, `int(...)`, `integral(...)`, `∫(...)dx`, plus
+  **summations and products** `sum(x^n/n, 1, 5)` / `prod(...)` (with index `n`); nested and mixed
+  expressions too — and it graphs the result, with a numeric fallback when there's no closed form. Multiple colour-coded curves with legend swatches to
   show/hide, drag to pan, scroll or on-canvas **+ / − / home** to zoom, a two-tier grid, and a
   hover **coordinate trace** that snaps to the nearest curve. Backed by a built-in **CAS** that
   evaluates, **differentiates**, **integrates** and **simplifies**, plus a numeric
@@ -99,12 +99,15 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
-- **2.3.3** — The **Graphing Calculator** gets a glow-up: a **live math field** that beautifies
-  what you type right in the input box (`x²`, `√`, `·`, `π`, `−`) with no preview line, and you
-  can **type calculus straight into the equation** — `d/dx(...)`, `deriv(...)`, `int(...)`,
-  `integral(...)`, `∫(...)dx` (nested/mixed too) — to graph the result. The plot is prettier and
-  smoother, with a hover **coordinate trace**, on-canvas **zoom / home** controls, and legend
-  swatches to show/hide each curve.
+- **2.3.5** — **Graphing Calculator** glow-up: a **live math field** that beautifies what you type
+  right in the input box (`x²`, `√`, `·`, `π`, `−`) with no preview line; **type calculus into the
+  equation** — `d/dx(...)`, `int(...)`, `∫(...)dx`, and now **summations & products**
+  (`sum(x^n/n, 1, 5)`, `prod(...)`) — to graph the result. The plot is prettier and smoother, with
+  a hover **coordinate trace**, on-canvas **zoom / home** controls, legend swatches to show/hide
+  curves, and a **fixed light-mode** plot (crisp grid/axes on white). The **Clipboard quick-picker**
+  is redesigned — larger, each clip in its own card with a one-click **✕ delete**, and **reliable
+  click-to-paste**. The **auto-updater** now shows per-release notes and always reopens the app
+  even if an update step fails.
 - **2.3.2** — **In-place updates**: no installer window, no admin rights — SuperWin downloads a
   portable build, swaps files in your user folder, and restarts. The **CAS** gains symbolic
   **integration** (`∫ dx`) and a live **pretty-math preview**, plus a numeric definite-integral

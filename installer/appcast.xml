@@ -24,27 +24,31 @@
     <language>en</language>
 
     <item>
-      <title>SuperWin 2.3.3</title>
+      <title>SuperWin 2.3.5</title>
       <description><![CDATA[
-        <h2>SuperWin 2.3.3</h2>
+        <h2>SuperWin 2.3.5</h2>
         <ul>
-          <li><b>A beautiful new Graphing Calculator:</b> each function now lives in a live
+          <li><b>A beautiful new Graphing Calculator:</b> each function lives in a live
               <b>math field</b> that beautifies what you type <i>as you type it</i> —
               <code>x^2</code> becomes x², <code>*</code> becomes ·, plus √, π and − — right in the
               box, with no separate preview line.</li>
           <li><b>Type calculus straight into the equation:</b> <code>d/dx(...)</code>,
-              <code>deriv(...)</code>, <code>int(...)</code>, <code>integral(...)</code> and
-              <code>∫(...)dx</code> graph the result, including nested and mixed expressions
-              (with a numeric antiderivative fallback when there's no closed form).</li>
-          <li><b>Prettier, smoother plot:</b> a taller anti-aliased canvas, two-tier grid,
-              a hover <b>coordinate trace</b> that snaps to the nearest curve, on-canvas
-              zoom / home controls, and colour-dot legend swatches that show/hide each curve.</li>
+              <code>int(...)</code>, <code>∫(...)dx</code>, and now <b>summations &amp; products</b>
+              <code>sum(x^n/n, 1, 5)</code> / <code>prod(...)</code> — nested and mixed expressions
+              graph too (numeric fallback when there's no closed form).</li>
+          <li><b>Prettier, smoother plot:</b> a taller anti-aliased canvas, two-tier grid, a hover
+              <b>coordinate trace</b> that snaps to the nearest curve, on-canvas zoom / home
+              controls, legend swatches to show/hide each curve, and <b>fixed light-mode</b>
+              rendering (grid and axes are now crisp on a white plot).</li>
+          <li><b>Clipboard quick-picker, redesigned:</b> a larger, cleaner popup with each clip
+              in its own card, a one-click <b>✕ to delete</b> a clip, and <b>reliable paste</b>
+              (clicking a clip now pastes it back where you were).</li>
         </ul>
       ]]></description>
       <pubDate>Fri, 05 Jun 2026 00:00:00 +0000</pubDate>
       <enclosure
-        url="https://github.com/shankar-sachin/superwin/releases/download/v2.3.3/SuperWin_v2.3.3_portable.zip"
-        sparkle:version="2.3.3"
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.3.5/SuperWin_v2.3.5_portable.zip"
+        sparkle:version="2.3.5"
         sparkle:os="windows"
         length="0"
         type="application/octet-stream" />

@@ -103,8 +103,8 @@ private:
         canvas_ = winrt::Canvas();
         canvas_.Height(520);
         canvas_.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
-        if (auto bg = ui::ThemeBrush(L"CardBackgroundFillColorSecondaryBrush")) canvas_.Background(bg);
         canvas_.SizeChanged([this](winrt::IInspectable const&, winrt::SizeChangedEventArgs const&) { Render(); });
+        canvas_.ActualThemeChanged([this](winrt::FrameworkElement const&, winrt::IInspectable const&) { Render(); });
         canvas_.PointerPressed([this](winrt::IInspectable const&, winrt::PointerRoutedEventArgs const& e) {
             dragging_ = true; traceActive_ = false;
             auto p = e.GetCurrentPoint(canvas_).Position();
@@ -336,36 +336,39 @@ private:
         auto sx = [&](double x) { return (x - vxmin_) / (vxmax_ - vxmin_) * W; };
         auto sy = [&](double y) { return H - (y - vymin_) / (vymax_ - vymin_) * H; };
 
-        auto grid = ui::ThemeBrush(L"DividerStrokeColorDefaultBrush");
-        if (!grid) grid = ui::ThemeBrush(L"TextFillColorTertiaryBrush");
-        auto axis = ui::ThemeBrush(L"TextFillColorSecondaryBrush");
-        auto labelBrush = ui::ThemeBrush(L"TextFillColorTertiaryBrush");
+        // Explicit, high-contrast plot colours that work in BOTH themes (the WinUI
+        // "divider" brushes are translucent and disappear on a light background).
+        const bool dark = canvas_.ActualTheme() == winrt::ElementTheme::Dark;
+        auto rgba = [](uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+            return winrt::SolidColorBrush{winrt::Windows::UI::Color{a, r, g, b}};
+        };
+        canvas_.Background(dark ? rgba(26, 27, 33, 255) : rgba(255, 255, 255, 255));
+        auto minorBrush = dark ? rgba(255, 255, 255, 20) : rgba(0, 0, 0, 16);
+        auto majorBrush = dark ? rgba(255, 255, 255, 46) : rgba(0, 0, 0, 38);
+        winrt::Brush axis = dark ? rgba(255, 255, 255, 165) : rgba(20, 20, 24, 175);
+        winrt::Brush labelBrush = dark ? rgba(225, 225, 230, 200) : rgba(60, 60, 66, 220);
 
         const double stepX = NiceStep((vxmax_ - vxmin_) / (W / 84.0));
         const double stepY = NiceStep((vymax_ - vymin_) / (H / 64.0));
 
         // Minor grid (subtle), then major grid + labels.
         const double minorX = stepX / 5, minorY = stepY / 5;
-        if (grid) {
-            for (double gx = std::ceil(vxmin_ / minorX) * minorX; gx <= vxmax_; gx += minorX)
-                canvas_.Children().Append(MakeLine(sx(gx), 0, sx(gx), H, grid, 1, 0.30));
-            for (double gy = std::ceil(vymin_ / minorY) * minorY; gy <= vymax_; gy += minorY)
-                canvas_.Children().Append(MakeLine(0, sy(gy), W, sy(gy), grid, 1, 0.30));
-        }
+        for (double gx = std::ceil(vxmin_ / minorX) * minorX; gx <= vxmax_; gx += minorX)
+            canvas_.Children().Append(MakeLine(sx(gx), 0, sx(gx), H, minorBrush, 1));
+        for (double gy = std::ceil(vymin_ / minorY) * minorY; gy <= vymax_; gy += minorY)
+            canvas_.Children().Append(MakeLine(0, sy(gy), W, sy(gy), minorBrush, 1));
         for (double gx = std::ceil(vxmin_ / stepX) * stepX; gx <= vxmax_; gx += stepX) {
             const double px = sx(gx);
-            if (grid) canvas_.Children().Append(MakeLine(px, 0, px, H, grid, 1, 0.85));
-            if (labelBrush && std::fabs(gx) > 1e-9) Label(px + 3, H - 17, winrt::hstring(FmtNum(gx)), labelBrush);
+            canvas_.Children().Append(MakeLine(px, 0, px, H, majorBrush, 1));
+            if (std::fabs(gx) > 1e-9) Label(px + 3, H - 17, winrt::hstring(FmtNum(gx)), labelBrush);
         }
         for (double gy = std::ceil(vymin_ / stepY) * stepY; gy <= vymax_; gy += stepY) {
             const double py = sy(gy);
-            if (grid) canvas_.Children().Append(MakeLine(0, py, W, py, grid, 1, 0.85));
-            if (labelBrush && std::fabs(gy) > 1e-9) Label(3, py + 1, winrt::hstring(FmtNum(gy)), labelBrush);
+            canvas_.Children().Append(MakeLine(0, py, W, py, majorBrush, 1));
+            if (std::fabs(gy) > 1e-9) Label(3, py + 1, winrt::hstring(FmtNum(gy)), labelBrush);
         }
-        if (axis) {
-            if (vymin_ < 0 && vymax_ > 0) canvas_.Children().Append(MakeLine(0, sy(0), W, sy(0), axis, 1.8));
-            if (vxmin_ < 0 && vxmax_ > 0) canvas_.Children().Append(MakeLine(sx(0), 0, sx(0), H, axis, 1.8));
-        }
+        if (vymin_ < 0 && vymax_ > 0) canvas_.Children().Append(MakeLine(0, sy(0), W, sy(0), axis, 1.8));
+        if (vxmin_ < 0 && vxmax_ > 0) canvas_.Children().Append(MakeLine(sx(0), 0, sx(0), H, axis, 1.8));
 
         for (auto& r : rows_) {
             if (!r.visible) continue;
