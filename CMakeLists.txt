@@ -138,6 +138,7 @@ if (SUPERWIN_ENABLE_WINUI)
         src/modules/jsonfmt/JsonPage.cpp
         src/modules/guid/GuidPage.cpp
         src/modules/graph/GraphPage.cpp
+        src/modules/graph/MathField.cpp
         src/modules/security/SecurityPage.cpp
         src/modules/alwaystop/AlwaysOnTopPage.cpp
     )

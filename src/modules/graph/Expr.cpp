@@ -3,12 +3,16 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace superwin {
 
-enum class Kind { Const, Var, Add, Sub, Mul, Div, Pow, Neg, Func };
+// NumInt is a numeric antiderivative F(x) = ∫₀ˣ a dt, used when the typed ∫
+// operator has no closed form we can produce symbolically.
+enum class Kind { Const, Var, Add, Sub, Mul, Div, Pow, Neg, Func, NumInt };
 
 struct ExprNode {
     Kind kind;
@@ -109,8 +113,18 @@ NodeP Fn(std::string f, NodeP a) {
     if (IsConst(a, v)) return C(ApplyFunc(f, v));
     return Make(Kind::Func, 0, std::move(f), std::move(a), nullptr);
 }
+NodeP NumInt(NodeP a) { return Make(Kind::NumInt, 0, "", std::move(a), nullptr); }
+
+// CAS transforms, defined further below but needed by the parser so typed
+// d/dx(...) and int(...) resolve at parse time into ordinary AST nodes.
+NodeP Deriv(const NodeP& n);
+NodeP Integrate(const NodeP& n);
+NodeP Simplify(const NodeP& n);
 
 // ---- parser ----
+constexpr double kPi = 3.14159265358979323846;
+constexpr double kE  = 2.71828182845904523536;
+
 class Parser {
 public:
     explicit Parser(const std::string& s) : s_(s) {}
@@ -127,33 +141,79 @@ private:
     char Peek() { Skip(); return pos_ < s_.size() ? s_[pos_] : '\0'; }
     bool Eat(char c) { if (Peek() == c) { ++pos_; return true; } return false; }
 
+    // Match (and consume) a literal byte sequence after optional whitespace.
+    // Used both for ASCII keywords ("d/dx", "dx") and UTF-8 math glyphs.
+    bool MatchBytes(const char* seq) {
+        Skip();
+        const size_t n = std::strlen(seq);
+        if (pos_ + n <= s_.size() && s_.compare(pos_, n, seq) == 0) { pos_ += n; return true; }
+        return false;
+    }
+    // A single Unicode superscript digit (⁰¹²…⁹) -> 0..9, or -1 if none.
+    int MatchSuperDigit() {
+        static const char* sd[10] = {
+            "\xE2\x81\xB0", "\xC2\xB9", "\xC2\xB2", "\xC2\xB3", "\xE2\x81\xB4",
+            "\xE2\x81\xB5", "\xE2\x81\xB6", "\xE2\x81\xB7", "\xE2\x81\xB8", "\xE2\x81\xB9"};
+        for (int i = 0; i < 10; ++i) if (MatchBytes(sd[i])) return i;
+        return -1;
+    }
+
+    NodeP ParseCallArg() {  // "(" Expr ")"
+        if (!Eat('(')) throw std::runtime_error("expected '(' ");
+        NodeP a = Expr();
+        if (!Eat(')')) throw std::runtime_error("missing ')'");
+        return a;
+    }
+    NodeP MakeDerivFrom(NodeP inner) { return Simplify(Deriv(inner)); }
+    NodeP MakeIntegralFrom(NodeP inner) {
+        NodeP r = Integrate(inner);
+        return r ? Simplify(r) : NumInt(std::move(inner));
+    }
+
     NodeP Expr() {
         NodeP n = Term();
         for (;;) {
             if (Eat('+')) n = Add(n, Term());
-            else if (Eat('-')) n = Sub(n, Term());
+            else if (Eat('-') || MatchBytes("\xE2\x88\x92")) n = Sub(n, Term());  // ASCII - or −
             else return n;
         }
     }
     NodeP Term() {
         NodeP n = Unary();
         for (;;) {
-            if (Eat('*')) n = Mul(n, Unary());
-            else if (Eat('/')) n = Div(n, Unary());
+            if (Eat('*') || MatchBytes("\xC2\xB7") || MatchBytes("\xC3\x97")) n = Mul(n, Unary());  // * · ×
+            else if (Eat('/') || MatchBytes("\xC3\xB7")) n = Div(n, Unary());                       // / ÷
             else return n;
         }
     }
     NodeP Unary() {
         if (Eat('+')) return Unary();
-        if (Eat('-')) return Neg(Unary());
+        if (Eat('-') || MatchBytes("\xE2\x88\x92")) return Neg(Unary());  // ASCII - or −
         return Power();
     }
     NodeP Power() {
         NodeP base = Primary();
+        // Unicode superscript exponent (e.g. x²) binds tightest, before ^.
+        bool neg = false;
+        std::string digits;
+        if (MatchBytes("\xE2\x81\xBB")) neg = true;  // superscript minus ⁻
+        for (int d; (d = MatchSuperDigit()) >= 0;) digits += static_cast<char>('0' + d);
+        if (!digits.empty()) {
+            const double e = std::stod(digits);
+            base = Pow(base, C(neg ? -e : e));
+        } else if (neg) {
+            throw std::runtime_error("stray superscript minus");
+        }
         if (Eat('^')) return Pow(base, Unary());  // right-assoc; unary looser than ^
         return base;
     }
     NodeP Primary() {
+        // Calculus operators and Unicode prefixes resolve here, before the
+        // generic number/identifier paths.
+        if (MatchBytes("d/dx")) return MakeDerivFrom(ParseCallArg());
+        if (MatchBytes("\xE2\x88\xAB")) { NodeP a = ParseCallArg(); MatchBytes("dx"); return MakeIntegralFrom(a); }  // ∫
+        if (MatchBytes("\xE2\x88\x9A")) return Fn("sqrt", Primary());  // √
+        if (MatchBytes("\xCF\x80")) return C(kPi);                      // π
         char c = Peek();
         if (c == '(') { ++pos_; NodeP n = Expr(); if (!Eat(')')) throw std::runtime_error("missing ')'"); return n; }
         if (std::isdigit(static_cast<unsigned char>(c)) || c == '.') return Number();
@@ -178,8 +238,10 @@ private:
         while (pos_ < s_.size() && std::isalpha(static_cast<unsigned char>(s_[pos_]))) ++pos_;
         std::string id = s_.substr(start, pos_ - start);
         if (id == "x") return Var();
-        if (id == "pi") return C(3.14159265358979323846);
-        if (id == "e") return C(2.71828182845904523536);
+        if (id == "pi") return C(kPi);
+        if (id == "e") return C(kE);
+        if (id == "deriv" || id == "derivative") return MakeDerivFrom(ParseCallArg());
+        if (id == "int" || id == "integral") { NodeP a = ParseCallArg(); MatchBytes("dx"); return MakeIntegralFrom(a); }
         if (!Eat('(')) throw std::runtime_error("unknown name '" + id + "'");
         NodeP arg = Expr();
         if (!Eat(')')) throw std::runtime_error("missing ')' after " + id);
@@ -205,6 +267,16 @@ double Eval(const NodeP& n, double x) {
         case Kind::Div:   return Eval(n->a, x) / Eval(n->b, x);
         case Kind::Pow:   return std::pow(Eval(n->a, x), Eval(n->b, x));
         case Kind::Func:  return ApplyFunc(n->func, Eval(n->a, x));
+        case Kind::NumInt: {  // F(x) = ∫₀ˣ a dt via composite Simpson's rule
+            double lo = 0, hi = x, sign = 1;
+            if (hi == lo) return 0;
+            if (hi < lo) { std::swap(lo, hi); sign = -1; }
+            const int N = 200;  // even
+            const double h = (hi - lo) / N;
+            double s = Eval(n->a, lo) + Eval(n->a, hi);
+            for (int i = 1; i < N; ++i) s += (i & 1 ? 4 : 2) * Eval(n->a, lo + i * h);
+            return sign * s * h / 3.0;
+        }
     }
     return std::nan("");
 }
@@ -239,6 +311,7 @@ NodeP Deriv(const NodeP& n) {
         case Kind::Mul:   return Add(Mul(Deriv(n->a), n->b), Mul(n->a, Deriv(n->b)));
         case Kind::Div:   return Div(Sub(Mul(Deriv(n->a), n->b), Mul(n->a, Deriv(n->b))), Pow(n->b, C(2)));
         case Kind::Func:  return Mul(DFunc(n->func, n->a), Deriv(n->a));
+        case Kind::NumInt: return n->a;  // d/dx ∫₀ˣ a dt = a
         case Kind::Pow: {
             const NodeP& u = n->a; const NodeP& v = n->b;
             double cv, cu;
@@ -262,6 +335,7 @@ NodeP Simplify(const NodeP& n) {
         case Kind::Div:   return Div(Simplify(n->a), Simplify(n->b));
         case Kind::Pow:   return Pow(Simplify(n->a), Simplify(n->b));
         case Kind::Func:  return Fn(n->func, Simplify(n->a));
+        case Kind::NumInt: return NumInt(Simplify(n->a));
     }
     return n;
 }
@@ -311,6 +385,7 @@ NodeP Integrate(const NodeP& n) {
             if (f == "cosh") return Fn("sinh", Var());
             return nullptr;
         }
+        case Kind::NumInt: return nullptr;  // don't double-integrate
     }
     return nullptr;
 }
@@ -319,7 +394,8 @@ int Prec(const NodeP& n) {
     switch (n->kind) {
         case Kind::Const: return n->value < 0 ? 3 : 4;
         case Kind::Var:
-        case Kind::Func:  return 4;
+        case Kind::Func:
+        case Kind::NumInt: return 4;
         case Kind::Pow:
         case Kind::Neg:   return 3;
         case Kind::Mul:
@@ -349,6 +425,7 @@ std::string Raw(const NodeP& n) {
         case Kind::Div:   return Str(n->a, 2) + "/" + Str(n->b, 3);
         case Kind::Pow:   return Str(n->a, 4) + "^" + Str(n->b, 3);
         case Kind::Func:  return n->func + "(" + Str(n->a, 0) + ")";
+        case Kind::NumInt: return "int(" + Str(n->a, 0) + ")";  // re-parseable ASCII
     }
     return "?";
 }
@@ -392,6 +469,7 @@ std::string PrettyRaw(const NodeP& n) {
         case Kind::Func:
             if (n->func == "sqrt") return "√" + Pretty(n->a, 3);
             return n->func + "(" + Pretty(n->a, 0) + ")";
+        case Kind::NumInt: return "∫(" + Pretty(n->a, 0) + ")dx";
     }
     return "?";
 }

@@ -1,4 +1,4 @@
-# SuperWin v2.3.2
+# SuperWin v2.3.3
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
@@ -21,11 +21,11 @@ self-contained deployment, and automatic updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.3.2/SuperWin_v2.3.2.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.3.3/SuperWin_v2.3.3.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.3.2.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.3.3.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -73,13 +73,17 @@ update. It then downloads a portable build into your user folder, swaps the file
 - **JSON Formatter** — pretty-print, minify, and validate JSON (with parse-error messages).
 - **GUID Generator** — random version-4 GUIDs, single or in bulk, with uppercase / hyphen /
   brace options.
-- **Graphing Calculator** — a **Desmos-style** plotter: multiple colour-coded `f(x)` curves,
-  drag to pan, scroll to zoom, labelled grid and axes, and a live **pretty-math preview**
-  (`x²`, `√`, `·`) under each function. Backed by a built-in **CAS** that evaluates,
-  **differentiates** (`d/dx`), **integrates** (`∫ dx`) and **simplifies** — one click plots a
-  derivative or antiderivative, and a **definite-integral** panel computes areas numerically
-  (Simpson). Supports `+ - * / ^`, parentheses, `x`, the constants `pi`/`e`, and a wide set of
-  functions (trig, hyperbolic, sqrt/cbrt, ln/log, exp, abs, …).
+- **Graphing Calculator** — a **Desmos-style** plotter with a **live math field**: type with
+  plain `^ * / sqrt pi` and the input box itself beautifies as you go (`x^2`→`x²`, `*`→`·`, plus
+  `√`, `π`, `−`) — the field *is* the pretty equation, no preview line. **Type calculus right
+  into the equation** — `d/dx(...)`, `deriv(...)`, `int(...)`, `integral(...)` or `∫(...)dx`
+  (nested and mixed expressions too) — and it graphs the result, with a numeric antiderivative
+  fallback when there's no closed form. Multiple colour-coded curves with legend swatches to
+  show/hide, drag to pan, scroll or on-canvas **+ / − / home** to zoom, a two-tier grid, and a
+  hover **coordinate trace** that snaps to the nearest curve. Backed by a built-in **CAS** that
+  evaluates, **differentiates**, **integrates** and **simplifies**, plus a numeric
+  **definite-integral** panel (Simpson). Supports `+ - * / ^`, parentheses, `x`, the constants
+  `pi`/`e`, and a wide set of functions (trig, hyperbolic, sqrt/cbrt, ln/log, exp, abs, …).
 - **Security & Privacy** — cryptographically-secure random tokens (hex/Base64), a password
   **strength meter** (entropy estimate), and one-click clipboard wiping.
 - **Always On Top** — assign a **global hotkey** (default `Ctrl+Win+T`) to pin or unpin *any*
@@ -95,6 +99,12 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
+- **2.3.3** — The **Graphing Calculator** gets a glow-up: a **live math field** that beautifies
+  what you type right in the input box (`x²`, `√`, `·`, `π`, `−`) with no preview line, and you
+  can **type calculus straight into the equation** — `d/dx(...)`, `deriv(...)`, `int(...)`,
+  `integral(...)`, `∫(...)dx` (nested/mixed too) — to graph the result. The plot is prettier and
+  smoother, with a hover **coordinate trace**, on-canvas **zoom / home** controls, and legend
+  swatches to show/hide each curve.
 - **2.3.2** — **In-place updates**: no installer window, no admin rights — SuperWin downloads a
   portable build, swaps files in your user folder, and restarts. The **CAS** gains symbolic
   **integration** (`∫ dx`) and a live **pretty-math preview**, plus a numeric definite-integral

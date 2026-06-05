@@ -94,3 +94,52 @@ TEST_CASE("Pretty math uses Unicode", "[Expr][CAS]") {
     REQUIRE(PrettyExpr("x^2", e).value() == std::string("x²"));
     REQUIRE(PrettyExpr("sqrt(x)", e).value() == std::string("√x"));
 }
+
+TEST_CASE("Parser accepts pretty Unicode operators", "[Expr][CAS][unicode]") {
+    // The math field's beautified text is itself re-parseable.
+    for (double x : {0.3, 1.4, 2.7}) {
+        REQUIRE_THAT(P("2·x").eval(x),   WithinAbs(P("2*x").eval(x), 1e-12));   // ·
+        REQUIRE_THAT(P("2×x").eval(x),   WithinAbs(P("2*x").eval(x), 1e-12));   // ×
+        REQUIRE_THAT(P("x−1").eval(x),   WithinAbs(P("x-1").eval(x), 1e-12));   // −
+        REQUIRE_THAT(P("x÷2").eval(x),   WithinAbs(P("x/2").eval(x), 1e-12));   // ÷
+        REQUIRE_THAT(P("√x").eval(x),    WithinAbs(P("sqrt(x)").eval(x), 1e-12));
+        REQUIRE_THAT(P("x²").eval(x),    WithinAbs(P("x^2").eval(x), 1e-12));
+        REQUIRE_THAT(P("x³+x²").eval(x), WithinAbs(P("x^3+x^2").eval(x), 1e-12));
+        REQUIRE_THAT(P("x⁻²").eval(x),   WithinAbs(P("x^(-2)").eval(x), 1e-12));
+    }
+    REQUIRE_THAT(P("π").eval(0.0), WithinAbs(3.14159265358979, 1e-10));  // π
+}
+
+TEST_CASE("Typed derivative graphs the derivative", "[Expr][CAS][calc]") {
+    for (double x : {0.4, 1.2, 2.5}) {
+        REQUIRE_THAT(P("d/dx(x^2)").eval(x),     WithinAbs(2 * x, 1e-9));
+        REQUIRE_THAT(P("deriv(x^2)").eval(x),    WithinAbs(2 * x, 1e-9));
+        REQUIRE_THAT(P("derivative(x^2)").eval(x), WithinAbs(2 * x, 1e-9));
+        REQUIRE_THAT(P("d/dx(sin(x))").eval(x),  WithinAbs(std::cos(x), 1e-9));
+        // nested and mixed into a larger expression
+        REQUIRE_THAT(P("d/dx(d/dx(x^3))").eval(x), WithinAbs(6 * x, 1e-9));
+        REQUIRE_THAT(P("d/dx(x^2)+1").eval(x),     WithinAbs(2 * x + 1, 1e-9));
+    }
+}
+
+TEST_CASE("Typed integral graphs an antiderivative", "[Expr][CAS][calc]") {
+    // Closed-form: int(x) = x^2/2, int(cos(x)) = sin(x) (constant of integration
+    // is fixed so the antiderivative passes through 0 at x=0 for these).
+    for (double x : {0.4, 1.2, 2.5}) {
+        REQUIRE_THAT(P("int(x)").eval(x),       WithinAbs(x * x / 2, 1e-9));
+        REQUIRE_THAT(P("integral(x)dx").eval(x), WithinAbs(x * x / 2, 1e-9));
+        REQUIRE_THAT(P("∫(cos(x))dx").eval(x),  WithinAbs(std::sin(x), 1e-9));
+        // d/dx of a typed integral recovers the integrand.
+        REQUIRE_THAT(P("d/dx(int(sin(x)))").eval(x), WithinAbs(std::sin(x), 1e-9));
+    }
+}
+
+TEST_CASE("Typed integral falls back to numeric antiderivative", "[Expr][CAS][calc]") {
+    // exp(x^2) has no elementary antiderivative -> NumInt node, F(x)=∫₀ˣ f dt.
+    Expr g = P("int(exp(x^2))");
+    for (double x : {0.5, 1.0, 1.5}) {
+        const double ref = DefiniteIntegral("exp(x^2)", 0, x).value();
+        REQUIRE_THAT(g.eval(x), WithinAbs(ref, 1e-4));
+    }
+    REQUIRE_THAT(g.eval(0.0), WithinAbs(0.0, 1e-12));  // F(0)=0
+}
