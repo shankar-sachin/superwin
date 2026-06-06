@@ -1,19 +1,24 @@
-// Graphing Calculator page — a Desmos-style plotter with a built-in CAS:
-//   * multiple colour-coded functions in a live "math field" that beautifies what
-//     you type (x², √, ·, π, −) right in the input box — no preview line
-//   * type calculus straight into the equation: d/dx(...), deriv(...), int(...),
-//     integral(...), ∫(...)dx — it graphs the result (numeric fallback for ∫)
-//   * drag to pan, wheel/buttons to zoom, hover for a live (x, y) trace
-//   * a numeric definite-integral panel (Simpson's rule)
-// Parsing / CAS live in Expr + GraphLogic (superwin_core, unit-tested); this file
-// is the WinUI rendering + interaction.
+// Graphing Calculator page — a TI-Nspire CX II CAS-style plotter.
+//
+// Layout: an editable LaTeX equation list on the LEFT (a WebView2 hosting MathLive)
+// and the plot on the RIGHT (a native Canvas). MathLive renders real ∫ / Σ / Π /
+// fractions / roman sin·cos as you type; on every edit the page posts the rows'
+// LaTeX to us, we translate it to the CAS grammar (Latex.h -> Expr.h) and plot.
+// If the WebView2 runtime is unavailable we fall back to a plain text editor.
+//
+// Parsing / CAS live in Expr + Latex + GraphLogic (superwin_core, unit-tested).
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <Windows.h>
+
+#include <nlohmann/json.hpp>
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -22,11 +27,12 @@
 #include <winrt/Microsoft.UI.Xaml.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
+#include <winrt/Microsoft.Web.WebView2.Core.h>
 
 #include "app/Ui.h"
 #include "core/Strings.h"
 #include "modules/graph/GraphLogic.h"
-#include "modules/graph/MathField.h"
+#include "modules/graph/Latex.h"
 
 namespace winrt {
 using namespace winrt::Windows::Foundation;
@@ -35,15 +41,11 @@ using namespace winrt::Microsoft::UI::Xaml::Controls;
 using namespace winrt::Microsoft::UI::Xaml::Input;
 using namespace winrt::Microsoft::UI::Xaml::Media;
 using namespace winrt::Microsoft::UI::Xaml::Shapes;
+namespace wv2 = winrt::Microsoft::Web::WebView2::Core;
 }  // namespace winrt
 
 namespace superwin {
 namespace {
-
-const winrt::Windows::UI::Color kPalette[] = {
-    {255, 0x4f, 0x8e, 0xf7}, {255, 0xff, 0x45, 0x4a}, {255, 0x34, 0xc7, 0x59},
-    {255, 0xff, 0x9f, 0x0a}, {255, 0xaf, 0x52, 0xde}, {255, 0x5a, 0xc8, 0xfa},
-};
 
 double NiceStep(double rough) {
     if (rough <= 0) return 1;
@@ -58,10 +60,31 @@ std::wstring FmtNum(double v) { wchar_t b[32]; swprintf_s(b, L"%g", v); return b
 
 winrt::SolidColorBrush Brush(winrt::Windows::UI::Color c) { return winrt::SolidColorBrush{c}; }
 
-struct Row {
-    std::shared_ptr<MathField> field;
-    winrt::Border swatch{nullptr};
-    winrt::Grid container{nullptr};
+winrt::Windows::UI::Color HexColor(const std::string& h) {
+    auto nib = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return (c >= 'a' && c <= 'f') ? c - 'a' + 10 : 0;
+    };
+    winrt::Windows::UI::Color c{255, 0x4f, 0x8e, 0xf7};
+    if (h.size() >= 7 && h[0] == '#') {
+        c.R = static_cast<uint8_t>(nib(h[1]) * 16 + nib(h[2]));
+        c.G = static_cast<uint8_t>(nib(h[3]) * 16 + nib(h[4]));
+        c.B = static_cast<uint8_t>(nib(h[5]) * 16 + nib(h[6]));
+    }
+    return c;
+}
+
+std::wstring ExeDir() {
+    wchar_t b[MAX_PATH]{};
+    ::GetModuleFileNameW(nullptr, b, MAX_PATH);
+    std::wstring p = b;
+    const auto i = p.find_last_of(L"\\/");
+    return i == std::wstring::npos ? L"." : p.substr(0, i);
+}
+
+struct PlotItem {
+    std::string infix;
     winrt::Windows::UI::Color color{};
     bool visible = true;
 };
@@ -73,38 +96,13 @@ public:
 
 private:
     void Build() {
-        exprPanel_ = ui::VStack(8);
-
-        auto add = winrt::Button();
-        add.Content(winrt::box_value(winrt::hstring(L"\x2795  Add function")));
-        add.Click([this](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { AddRow(L""); Render(); });
-
-        auto controls = ui::HStack(8);
-        controls.Children().Append(add);
-
-        // Definite-integral panel.
-        aBox_ = MakeNum(0); bBox_ = MakeNum(1);
-        auto integ = winrt::Button();
-        integ.Content(winrt::box_value(winrt::hstring(L"Compute \x222B")));
-        integ.Click([this](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { ComputeArea(); });
-        areaLabel_ = ui::Text(L"", 14, true);
-        auto areaRow = ui::HStack(8);
-        areaRow.VerticalAlignment(winrt::VerticalAlignment::Center);
-        areaRow.Children().Append(ui::Text(L"\x222B of f\x2081 from", 13));
-        areaRow.Children().Append(aBox_);
-        areaRow.Children().Append(ui::Text(L"to", 13));
-        areaRow.Children().Append(bBox_);
-        areaRow.Children().Append(integ);
-        areaRow.Children().Append(areaLabel_);
-
-        status_ = ui::Caption(L"Drag to pan  \x2022  scroll or use \x002B / \x2212 to zoom  \x2022  hover to trace");
-
-        // Plot surface: a Canvas with an overlaid zoom/home control cluster.
+        // ---- right: the plot ----
         canvas_ = winrt::Canvas();
-        canvas_.Height(520);
+        canvas_.MinHeight(560);
         canvas_.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
+        canvas_.VerticalAlignment(winrt::VerticalAlignment::Stretch);
         canvas_.SizeChanged([this](winrt::IInspectable const&, winrt::SizeChangedEventArgs const&) { Render(); });
-        canvas_.ActualThemeChanged([this](winrt::FrameworkElement const&, winrt::IInspectable const&) { Render(); });
+        canvas_.ActualThemeChanged([this](winrt::FrameworkElement const&, winrt::IInspectable const&) { PushTheme(); Render(); });
         canvas_.PointerPressed([this](winrt::IInspectable const&, winrt::PointerRoutedEventArgs const& e) {
             dragging_ = true; traceActive_ = false;
             auto p = e.GetCurrentPoint(canvas_).Position();
@@ -124,8 +122,7 @@ private:
         });
         canvas_.PointerWheelChanged([this](winrt::IInspectable const&, winrt::PointerRoutedEventArgs const& e) {
             auto pt = e.GetCurrentPoint(canvas_);
-            const int delta = pt.Properties().MouseWheelDelta();
-            Zoom(delta > 0 ? 0.85 : 1.0 / 0.85, pt.Position().X, pt.Position().Y);
+            Zoom(pt.Properties().MouseWheelDelta() > 0 ? 0.85 : 1.0 / 0.85, pt.Position().X, pt.Position().Y);
         });
 
         auto zoomBox = ui::VStack(6);
@@ -139,153 +136,114 @@ private:
         winrt::Grid plot;
         plot.Children().Append(canvas_);
         plot.Children().Append(zoomBox);
+        plot.MinHeight(560);
+        auto plotCard = ui::Card(plot, 0);
 
-        auto card = ui::VStack(12);
-        card.Children().Append(ui::Text(L"Functions", 16, true));
-        card.Children().Append(exprPanel_);
-        card.Children().Append(controls);
-        card.Children().Append(ui::Card(areaRow, 12));
-        card.Children().Append(status_);
-        card.Children().Append(ui::Card(plot, 0));
+        // ---- left: the equation editor (WebView2 + MathLive) ----
+        leftHost_ = winrt::Border();
+        leftHost_.CornerRadius(winrt::CornerRadius{12, 12, 12, 12});
+        leftHost_.Width(370);
+        leftHost_.MinHeight(560);
+        if (auto bg = ui::ThemeBrush(L"CardBackgroundFillColorDefaultBrush")) leftHost_.Background(bg);
+        if (auto st = ui::ThemeBrush(L"CardStrokeColorDefaultBrush")) {
+            leftHost_.BorderBrush(st);
+            leftHost_.BorderThickness(winrt::Thickness{1, 1, 1, 1});
+        }
+        SetupWebView();
 
-        root_ = ui::Page(L"Graphing Calculator", ui::Card(card));
+        // ---- split: editor left, plot right ----
+        winrt::Grid split;
+        auto cEd = winrt::ColumnDefinition(); cEd.Width(winrt::GridLengthHelper::Auto());
+        auto cPl = winrt::ColumnDefinition(); cPl.Width(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+        split.ColumnDefinitions().Append(cEd);
+        split.ColumnDefinitions().Append(cPl);
+        split.ColumnSpacing(14);
+        winrt::Grid::SetColumn(leftHost_, 0);
+        winrt::Grid::SetColumn(plotCard, 1);
+        split.Children().Append(leftHost_);
+        split.Children().Append(plotCard);
 
-        AddRow(L"sin(x)");
+        status_ = ui::Caption(L"Type math on the left \x2014 \x222B, \x03A3, \x03A0, fractions and more render live  \x2022  drag to pan, scroll to zoom");
+
+        auto body = ui::VStack(12);
+        body.Children().Append(split);
+        body.Children().Append(status_);
+
+        root_ = ui::Page(L"Graphing Calculator", body);
+    }
+
+    void SetupWebView() {
+        webview_ = winrt::WebView2();
+        webview_.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
+        webview_.VerticalAlignment(winrt::VerticalAlignment::Stretch);
+        leftHost_.Child(webview_);
+
+        webview_.CoreWebView2Initialized([this](winrt::WebView2 const&, winrt::CoreWebView2InitializedEventArgs const& args) {
+            if (args.Exception()) { ShowWebFallback(); return; }
+            auto core = webview_.CoreWebView2();
+            auto s = core.Settings();
+            s.AreDevToolsEnabled(false);
+            s.AreDefaultContextMenusEnabled(false);
+            s.IsZoomControlEnabled(false);
+            s.IsStatusBarEnabled(false);
+            core.SetVirtualHostNameToFolderMapping(
+                L"superwin.graph", ExeDir() + L"\\web", winrt::wv2::CoreWebView2HostResourceAccessKind::Allow);
+            core.WebMessageReceived([this](winrt::wv2::CoreWebView2 const&, winrt::wv2::CoreWebView2WebMessageReceivedEventArgs const& e) {
+                OnWebMessage(e);
+            });
+            webview_.NavigationCompleted([this](winrt::WebView2 const&, winrt::wv2::CoreWebView2NavigationCompletedEventArgs const&) {
+                PushTheme();
+            });
+            core.Navigate(L"https://superwin.graph/index.html");
+        });
+
+        // Kick off initialization; failures surface via the event's Exception().
+        try { webview_.EnsureCoreWebView2Async(); }
+        catch (...) { ShowWebFallback(); }
+    }
+
+    void ShowWebFallback() {
+        auto col = ui::VStack(8);
+        col.Margin(winrt::Thickness{16, 16, 16, 16});
+        col.Children().Append(ui::Text(L"WebView2 runtime not found", 15, true));
+        col.Children().Append(ui::Caption(
+            L"The live LaTeX editor needs the Microsoft Edge WebView2 runtime (preinstalled on "
+            L"Windows 11). Install it, then reopen SuperWin."));
+        leftHost_.Child(col);
+    }
+
+    void OnWebMessage(winrt::wv2::CoreWebView2WebMessageReceivedEventArgs const& e) {
+        std::string utf8;
+        try { utf8 = WideToUtf8(std::wstring(e.TryGetWebMessageAsString())); }
+        catch (...) { return; }
+        auto j = nlohmann::json::parse(utf8, nullptr, false);
+        if (j.is_discarded() || !j.is_object()) return;
+        if (j.value("type", std::string()) != "state" || !j.contains("rows")) return;
+
+        items_.clear();
+        for (auto const& r : j["rows"]) {
+            PlotItem it;
+            it.infix = LatexToInfix(r.value("latex", std::string()));
+            it.color = HexColor(r.value("color", std::string("#4f8ef7")));
+            it.visible = r.value("visible", true);
+            items_.push_back(std::move(it));
+        }
         Render();
+    }
+
+    void PushTheme() {
+        if (!webview_ || !webview_.CoreWebView2()) return;
+        const bool dark = leftHost_ && leftHost_.ActualTheme() == winrt::ElementTheme::Dark;
+        webview_.ExecuteScriptAsync(dark ? L"swSetTheme('dark')" : L"swSetTheme('light')");
     }
 
     winrt::Button OverlayButton(winrt::hstring glyph, std::function<void()> fn) {
         winrt::Button b;
         b.Content(winrt::box_value(glyph));
-        b.Width(38); b.Height(38);
-        b.FontSize(17);
+        b.Width(38); b.Height(38); b.FontSize(17);
         b.Padding(winrt::Thickness{0, 0, 0, 0});
         b.Click([fn](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { fn(); });
         return b;
-    }
-
-    winrt::NumberBox MakeNum(double v) {
-        winrt::NumberBox n;
-        n.Value(v); n.SmallChange(1);
-        n.SpinButtonPlacementMode(winrt::NumberBoxSpinButtonPlacementMode::Inline);
-        n.Width(120);
-        return n;
-    }
-
-    winrt::ColumnDefinition Col(double v, winrt::GridUnitType type) {
-        winrt::ColumnDefinition c;
-        c.Width(winrt::GridLengthHelper::FromValueAndType(v, type));
-        return c;
-    }
-
-    void AddRow(winrt::hstring text) {
-        Row r;
-        r.color = kPalette[rows_.size() % (sizeof(kPalette) / sizeof(kPalette[0]))];
-        auto colorBrush = Brush(r.color);
-
-        r.swatch = winrt::Border();
-        r.swatch.Width(16); r.swatch.Height(16);
-        r.swatch.CornerRadius(winrt::CornerRadius{8, 8, 8, 8});
-        r.swatch.Background(colorBrush);
-        r.swatch.BorderBrush(colorBrush);
-        r.swatch.BorderThickness(winrt::Thickness{2, 2, 2, 2});
-        r.swatch.VerticalAlignment(winrt::VerticalAlignment::Center);
-        winrt::Controls::ToolTipService::SetToolTip(r.swatch, winrt::box_value(winrt::hstring(L"Show / hide")));
-
-        r.field = std::make_shared<MathField>();
-        r.field->SetForeground(colorBrush);
-        r.field->OnChanged([this] { Render(); });
-
-        auto field = r.field;
-        auto dydx = MakeOp(L"d/dx", L"Plot the derivative", [this, field] {
-            std::string err; auto d = DifferentiateExpr(field->ToAscii(), err);
-            if (d) { AddRow(winrt::hstring(Utf8ToWide(*d))); Render(); }
-            else status_.Text(winrt::hstring(L"\x26A0  " + Utf8ToWide(err)));
-        });
-        auto integ = MakeOp(L"\x222B dx", L"Plot the antiderivative", [this, field] {
-            // Route through the typed int(...) operator so it always graphs (symbolic
-            // when there's a closed form, numeric ∫₀ˣ otherwise).
-            const std::string a = field->ToAscii();
-            if (!a.empty()) { AddRow(winrt::hstring(Utf8ToWide("int(" + a + ")"))); Render(); }
-        });
-        auto simp = MakeOp(L"simplify", L"Simplify in place", [field] {
-            std::string err; auto s = SimplifyExpr(field->ToAscii(), err);
-            if (s) field->SetText(*s);
-        });
-
-        auto remove = winrt::Button();
-        remove.Content(winrt::box_value(winrt::hstring(L"\x2715")));
-        remove.Click([this, field](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
-            RemoveRow(field);
-        });
-
-        auto ops = ui::HStack(6);
-        ops.VerticalAlignment(winrt::VerticalAlignment::Center);
-        ops.Children().Append(dydx);
-        ops.Children().Append(integ);
-        ops.Children().Append(simp);
-        ops.Children().Append(remove);
-
-        r.container = winrt::Grid();
-        r.container.ColumnDefinitions().Append(Col(0, winrt::GridUnitType::Auto));
-        r.container.ColumnDefinitions().Append(Col(1, winrt::GridUnitType::Star));
-        r.container.ColumnDefinitions().Append(Col(0, winrt::GridUnitType::Auto));
-        r.container.ColumnSpacing(10);
-        r.container.VerticalAlignment(winrt::VerticalAlignment::Center);
-        auto fieldCtl = r.field->Control();
-        winrt::Grid::SetColumn(r.swatch, 0);
-        winrt::Grid::SetColumn(fieldCtl, 1);
-        winrt::Grid::SetColumn(ops, 2);
-        r.container.Children().Append(r.swatch);
-        r.container.Children().Append(fieldCtl);
-        r.container.Children().Append(ops);
-
-        // Toggle visibility by tapping the colour swatch.
-        auto swatch = r.swatch; auto fld = r.field;
-        r.swatch.Tapped([this, fld, swatch](winrt::IInspectable const&, winrt::TappedRoutedEventArgs const&) {
-            for (auto& row : rows_) if (row.field == fld) {
-                row.visible = !row.visible;
-                swatch.Background(row.visible ? Brush(row.color) : winrt::SolidColorBrush{winrt::Windows::UI::Color{0,0,0,0}});
-                swatch.Opacity(row.visible ? 1.0 : 0.9);
-                break;
-            }
-            Render();
-        });
-
-        rows_.push_back(r);
-        exprPanel_.Children().Append(r.container);
-        r.field->SetText(WideToUtf8(std::wstring(text)));
-    }
-
-    template <typename Fn>
-    winrt::Button MakeOp(winrt::hstring label, winrt::hstring tip, Fn fn) {
-        winrt::Button b;
-        b.Content(winrt::box_value(label));
-        b.FontSize(12.5);
-        winrt::Controls::ToolTipService::SetToolTip(b, winrt::box_value(tip));
-        b.Click([fn](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { fn(); });
-        return b;
-    }
-
-    void RemoveRow(std::shared_ptr<MathField> field) {
-        for (size_t i = 0; i < rows_.size(); ++i) {
-            if (rows_[i].field != field) continue;
-            auto container = rows_[i].container;
-            auto kids = exprPanel_.Children();
-            for (uint32_t j = 0; j < kids.Size(); ++j) {
-                if (kids.GetAt(j).try_as<winrt::Grid>() == container) { kids.RemoveAt(j); break; }
-            }
-            rows_.erase(rows_.begin() + i);
-            break;
-        }
-        Render();
-    }
-
-    void ComputeArea() {
-        if (rows_.empty()) { areaLabel_.Text(L"add a function first"); return; }
-        auto v = DefiniteIntegral(rows_[0].field->ToAscii(), aBox_.Value(), bBox_.Value());
-        if (v) { wchar_t b[64]; swprintf_s(b, L"= %.6g", *v); areaLabel_.Text(b); }
-        else areaLabel_.Text(L"couldn't evaluate");
     }
 
     void Pan(double dxPx, double dyPx) {
@@ -305,9 +263,7 @@ private:
         vymin_ = cy - (cy - vymin_) * factor; vymax_ = cy + (vymax_ - cy) * factor;
         Render();
     }
-    void ZoomCenter(double factor) {
-        Zoom(factor, canvas_.ActualWidth() / 2, canvas_.ActualHeight() / 2);
-    }
+    void ZoomCenter(double factor) { Zoom(factor, canvas_.ActualWidth() / 2, canvas_.ActualHeight() / 2); }
     void ResetView() { vxmin_ = -10; vxmax_ = 10; vymin_ = -6; vymax_ = 6; Render(); }
 
     winrt::Line MakeLine(double x1, double y1, double x2, double y2, winrt::Brush stroke, double thick, double opacity = 1.0) {
@@ -328,7 +284,6 @@ private:
         const double W = canvas_.ActualWidth(), H = canvas_.ActualHeight();
         if (W < 2 || H < 2 || !(vxmax_ > vxmin_) || !(vymax_ > vymin_)) return;
 
-        // Clip curves to the plot rectangle (it sits inside a rounded card).
         winrt::RectangleGeometry clip;
         clip.Rect(winrt::Rect{0, 0, static_cast<float>(W), static_cast<float>(H)});
         canvas_.Clip(clip);
@@ -336,22 +291,19 @@ private:
         auto sx = [&](double x) { return (x - vxmin_) / (vxmax_ - vxmin_) * W; };
         auto sy = [&](double y) { return H - (y - vymin_) / (vymax_ - vymin_) * H; };
 
-        // Explicit, high-contrast plot colours that work in BOTH themes (the WinUI
-        // "divider" brushes are translucent and disappear on a light background).
+        // TI-Nspire-style colour screen: light plot + crisp grid, dark equivalent.
         const bool dark = canvas_.ActualTheme() == winrt::ElementTheme::Dark;
         auto rgba = [](uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
             return winrt::SolidColorBrush{winrt::Windows::UI::Color{a, r, g, b}};
         };
-        canvas_.Background(dark ? rgba(26, 27, 33, 255) : rgba(255, 255, 255, 255));
+        canvas_.Background(dark ? rgba(22, 24, 29, 255) : rgba(255, 255, 255, 255));
         auto minorBrush = dark ? rgba(255, 255, 255, 20) : rgba(0, 0, 0, 16);
         auto majorBrush = dark ? rgba(255, 255, 255, 46) : rgba(0, 0, 0, 38);
-        winrt::Brush axis = dark ? rgba(255, 255, 255, 165) : rgba(20, 20, 24, 175);
+        winrt::Brush axis = dark ? rgba(255, 255, 255, 170) : rgba(20, 20, 24, 180);
         winrt::Brush labelBrush = dark ? rgba(225, 225, 230, 200) : rgba(60, 60, 66, 220);
 
         const double stepX = NiceStep((vxmax_ - vxmin_) / (W / 84.0));
         const double stepY = NiceStep((vymax_ - vymin_) / (H / 64.0));
-
-        // Minor grid (subtle), then major grid + labels.
         const double minorX = stepX / 5, minorY = stepY / 5;
         for (double gx = std::ceil(vxmin_ / minorX) * minorX; gx <= vxmax_; gx += minorX)
             canvas_.Children().Append(MakeLine(sx(gx), 0, sx(gx), H, minorBrush, 1));
@@ -370,12 +322,12 @@ private:
         if (vymin_ < 0 && vymax_ > 0) canvas_.Children().Append(MakeLine(0, sy(0), W, sy(0), axis, 1.8));
         if (vxmin_ < 0 && vxmax_ > 0) canvas_.Children().Append(MakeLine(sx(0), 0, sx(0), H, axis, 1.8));
 
-        for (auto& r : rows_) {
-            if (!r.visible) continue;
+        for (auto const& item : items_) {
+            if (!item.visible || item.infix.empty()) continue;
             std::string err;
-            auto fn = CompileExpression(r.field->ToAscii(), err);
+            auto fn = CompileExpression(item.infix, err);
             if (!fn) continue;
-            auto brush = Brush(r.color);
+            auto brush = Brush(item.color);
             winrt::Polyline poly; poly.Stroke(brush); poly.StrokeThickness(2.6);
             poly.StrokeLineJoin(winrt::PenLineJoin::Round);
             bool have = false; double prevPy = 0;
@@ -404,24 +356,20 @@ private:
     void DrawTrace(double W, double H, SY sy, winrt::Brush axis) {
         if (!traceActive_ || traceX_ < 0 || traceX_ > W) return;
         const double dataX = vxmin_ + (vxmax_ - vxmin_) * (traceX_ / W);
-
-        // Snap to the visible curve whose point is nearest the cursor.
         double bestPy = 0, bestY = 0, bestDist = std::numeric_limits<double>::infinity();
         winrt::Windows::UI::Color bestColor{};
         bool found = false;
-        for (auto& r : rows_) {
-            if (!r.visible) continue;
+        for (auto const& item : items_) {
+            if (!item.visible || item.infix.empty()) continue;
             std::string err;
-            auto fn = CompileExpression(r.field->ToAscii(), err);
+            auto fn = CompileExpression(item.infix, err);
             if (!fn) continue;
             const double y = (*fn)(dataX);
             if (!std::isfinite(y)) continue;
             const double py = sy(y);
             const double d = std::fabs(py - traceY_);
-            if (d < bestDist) { bestDist = d; bestPy = py; bestY = y; bestColor = r.color; found = true; }
+            if (d < bestDist) { bestDist = d; bestPy = py; bestY = y; bestColor = item.color; found = true; }
         }
-
-        // Vertical guide line at the cursor x.
         if (axis) canvas_.Children().Append(MakeLine(traceX_, 0, traceX_, H, axis, 1, 0.45));
         if (!found) return;
 
@@ -451,11 +399,11 @@ private:
         canvas_.Children().Append(pill);
     }
 
-    winrt::Microsoft::UI::Xaml::Controls::StackPanel exprPanel_{nullptr};
-    winrt::Microsoft::UI::Xaml::Controls::TextBlock status_{nullptr}, areaLabel_{nullptr};
-    winrt::Microsoft::UI::Xaml::Controls::NumberBox aBox_{nullptr}, bBox_{nullptr};
+    winrt::Microsoft::UI::Xaml::Controls::WebView2 webview_{nullptr};
+    winrt::Microsoft::UI::Xaml::Controls::Border leftHost_{nullptr};
+    winrt::Microsoft::UI::Xaml::Controls::TextBlock status_{nullptr};
     winrt::Microsoft::UI::Xaml::Controls::Canvas canvas_{nullptr};
-    std::vector<Row> rows_;
+    std::vector<PlotItem> items_;
     double vxmin_ = -10, vxmax_ = 10, vymin_ = -6, vymax_ = 6;
     bool dragging_ = false;
     double lastX_ = 0, lastY_ = 0;

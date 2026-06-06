@@ -8,7 +8,7 @@
 ;  see the [Files] section paths below.)
 
 #define AppName "SuperWin"
-#define AppVersion "2.3.5"
+#define AppVersion "2.3.6"
 #define AppPublisher "SuperWin"
 #define AppExe "SuperWin.exe"
 
@@ -47,7 +47,7 @@ Name: "autostart"; Description: "Launch {#AppName} when I sign in"; GroupDescrip
 ; Microsoft.UI.Xaml theme folder and locale subfolders) must ship. Exclude
 ; dev-only artifacts and the test binary.
 Source: "..\build\Release\*"; DestDir: "{app}"; \
-    Excludes: "*.pdb,*.ilk,*.exp,*.lib,SuperWin_tests.exe,pri_dump*,app_only.pri,Catch2*"; \
+    Excludes: "*.pdb,*.ilk,*.exp,*.lib,SuperWin_tests.exe,pri_dump*,app_only.pri,Catch2*,\*.WebView2\*"; \
     Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\assets\*"; DestDir: "{app}\assets"; \
     Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist

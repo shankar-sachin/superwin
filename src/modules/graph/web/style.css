@@ -1,0 +1,99 @@
+:root {
+  --bg: #1b1b1f;
+  --card: #26262c;
+  --card-border: #3a3a42;
+  --text: #f2f2f5;
+  --muted: #a6a6b0;
+  --hover: #32323a;
+}
+body.light {
+  --bg: #ffffff;
+  --card: #f6f6f8;
+  --card-border: #e2e2e8;
+  --text: #1a1a1f;
+  --muted: #6a6a72;
+  --hover: #ececf1;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  -ms-overflow-style: none;
+}
+body {
+  padding: 10px 12px 14px;
+  box-sizing: border-box;
+}
+
+#rows { display: flex; flex-direction: column; gap: 8px; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-left: 4px solid var(--c, #4f8ef7);
+  border-radius: 12px;
+  padding: 6px 10px 6px 8px;
+  transition: opacity .12s ease;
+}
+.row.hidden { opacity: .4; }
+
+/* round colour swatch (an <input type=color>) */
+.swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px; height: 22px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.swatch::-webkit-color-swatch { border: 2px solid rgba(255,255,255,.35); border-radius: 50%; }
+
+math-field.mf {
+  flex: 1 1 auto;
+  font-size: 22px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  outline: none;
+  --selection-background-color: rgba(79,142,247,.25);
+  --caret-color: var(--c, #4f8ef7);
+}
+math-field.mf::part(virtual-keyboard-toggle),
+math-field.mf::part(menu-toggle) { display: none; }
+
+.icon {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.icon:hover { background: var(--hover); color: var(--text); }
+
+#add {
+  margin-top: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card);
+  border: 1px dashed var(--card-border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+#add:hover { background: var(--hover); }

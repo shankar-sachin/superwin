@@ -24,6 +24,31 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.3.6</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.3.6</h2>
+        <ul>
+          <li><b>Real LaTeX equations (MathView2):</b> the Graphing Calculator now has a
+              <b>TI-Nspire CX II CAS-style</b> editor on the left powered by MathLive — type and
+              see <b>true typeset math</b>: a tall <b>∫</b>, real <b>fractions</b>, <b>Σ / Π</b>,
+              radicals and roman sin·cos, live as you type.</li>
+          <li><b>It graphs the real thing:</b> integrals, summations, products, derivatives and
+              fractions translate straight into the built-in CAS and plot on the right (numeric
+              fallback when there's no closed form).</li>
+          <li>Per-curve <b>colour picker</b>, <b>show/hide</b> and <b>delete</b>; equations on the
+              left, plot on the right.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Fri, 05 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.3.6/SuperWin_v2.3.6_portable.zip"
+        sparkle:version="2.3.6"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.3.5</title>
       <description><![CDATA[
         <h2>SuperWin 2.3.5</h2>

@@ -201,11 +201,28 @@ private:
             else return n;
         }
     }
+    // Does the upcoming token begin a new factor (for implicit multiplication
+    // like 2x, 2sin(x), (x+1)(x-1))? Excludes the binary operators, incl. the
+    // Unicode minus, so "x − 1" stays a subtraction.
+    bool PeekBytesAt(const char* seq) {
+        Skip();
+        const size_t n = std::strlen(seq);
+        return pos_ + n <= s_.size() && s_.compare(pos_, n, seq) == 0;
+    }
+    bool StartsFactor() {
+        const char c = Peek();
+        if (std::isdigit(static_cast<unsigned char>(c)) || c == '.' ||
+            std::isalpha(static_cast<unsigned char>(c)) || c == '(') return true;
+        return PeekBytesAt("\xE2\x88\x9A") ||  // √
+               PeekBytesAt("\xCF\x80")     ||  // π
+               PeekBytesAt("\xE2\x88\xAB");    // ∫
+    }
     NodeP Term() {
         NodeP n = Unary();
         for (;;) {
             if (Eat('*') || MatchBytes("\xC2\xB7") || MatchBytes("\xC3\x97")) n = Mul(n, Unary());  // * · ×
             else if (Eat('/') || MatchBytes("\xC3\xB7")) n = Div(n, Unary());                       // / ÷
+            else if (StartsFactor()) n = Mul(n, Power());  // implicit multiplication
             else return n;
         }
     }

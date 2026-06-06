@@ -43,6 +43,7 @@ add_library(superwin_core STATIC
     src/modules/guid/GuidLogic.cpp
     src/modules/graph/GraphLogic.cpp
     src/modules/graph/Expr.cpp
+    src/modules/graph/Latex.cpp
     src/modules/security/SecurityLogic.cpp
 )
 target_include_directories(superwin_core PUBLIC src)
@@ -72,6 +73,7 @@ if (SUPERWIN_BUILD_TESTS)
         tests/GuidLogicTests.cpp
         tests/GraphLogicTests.cpp
         tests/ExprTests.cpp
+        tests/LatexTests.cpp
         tests/SecurityLogicTests.cpp
     )
     target_link_libraries(SuperWin_tests PRIVATE superwin_core Catch2::Catch2WithMain)
@@ -138,7 +140,6 @@ if (SUPERWIN_ENABLE_WINUI)
         src/modules/jsonfmt/JsonPage.cpp
         src/modules/guid/GuidPage.cpp
         src/modules/graph/GraphPage.cpp
-        src/modules/graph/MathField.cpp
         src/modules/security/SecurityPage.cpp
         src/modules/alwaystop/AlwaysOnTopPage.cpp
     )
@@ -146,6 +147,14 @@ if (SUPERWIN_ENABLE_WINUI)
         "Microsoft.Windows.CppWinRT_2.0.250303.1"
         "Microsoft.WindowsAppSDK_1.8.260508005"
     )
+    # Deploy the Graphing Calculator's web editor (MathLive + fonts) next to the
+    # exe; the WebView2 maps a virtual host to this folder. Included in the
+    # installer automatically (it bundles the whole Release folder).
+    add_custom_command(TARGET SuperWin POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/src/modules/graph/web"
+            "$<TARGET_FILE_DIR:SuperWin>/web"
+        COMMENT "Deploying graph web assets (MathLive)")
     # Unpackaged (no MSIX) desktop app -> bootstrapper loads the runtime.
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_WindowsPackageType "None")
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_AppxPackage "false")
