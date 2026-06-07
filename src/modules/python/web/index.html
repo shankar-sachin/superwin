@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SuperWin Python IDE</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="app.js"></script>
+</head>
+<body class="dark">
+  <div id="bar">
+    <button id="run" type="button">▶ Run</button>
+    <button id="clear" type="button">Clear output</button>
+    <span id="status"></span>
+  </div>
+  <div id="editor">
+    <pre id="hl" aria-hidden="true"><code></code></pre>
+    <textarea id="code" spellcheck="false" autocomplete="off" autocorrect="off"
+              autocapitalize="off" wrap="off"></textarea>
+  </div>
+  <div id="outwrap">
+    <div id="outlabel">Output</div>
+    <pre id="out"></pre>
+  </div>
+</body>
+</html>

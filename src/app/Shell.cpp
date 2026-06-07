@@ -123,7 +123,13 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     // Icons codepoints.
     nav_.MenuItems().Append(MakeNavItem(L"Home", 0xE80F, L"home"));
 
-    auto header = [this](const wchar_t* title) {
+    // Each category gets a text header AND a separator line in front of it. The
+    // header text collapses to nothing when the pane is minimized, but the
+    // separator stays visible, so categories are still divided in compact mode.
+    auto firstHeader = std::make_shared<bool>(true);
+    auto header = [this, firstHeader](const wchar_t* title) {
+        if (!*firstHeader) nav_.MenuItems().Append(winrt::NavigationViewItemSeparator());
+        *firstHeader = false;
         auto h = winrt::NavigationViewItemHeader();
         h.Content(winrt::box_value(winrt::hstring(title)));
         nav_.MenuItems().Append(h);
@@ -136,7 +142,7 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     item(L"Volume Customizer", 0xE767, L"volume");
     item(L"Diagnostics",       0xE9D9, L"diagnostics");
     item(L"Network Info",      0xE968, L"netinfo");
-    item(L"Keep Awake",        0xE945, L"keepawake");
+    item(L"Sleep",             0xE708, L"keepawake");
     item(L"Always On Top",     0xE840, L"alwaystop");
 
     header(L"Clipboard & Notepad");
@@ -148,17 +154,20 @@ winrt::Microsoft::UI::Xaml::Window Shell::Create() {
     item(L"Hash & Checksum", 0xE72E, L"hash");
     item(L"JSON Formatter",  0xE943, L"json");
     item(L"GUID Generator",  0xE928, L"guid");
+    item(L"Python IDE",      0xE943, L"python");
 
     header(L"Math");
-    item(L"Unit Converter",      0xE8EF, L"convert");
-    item(L"Graphing Calculator", 0xE9D2, L"graph");
+    item(L"Unit Converter", 0xE8EF, L"convert");
+    item(L"Calculator",     0xE9D2, L"calc");
 
     header(L"Security & Privacy");
     item(L"Security & Privacy", 0xEA18, L"security");
     item(L"Password Generator", 0xE8D7, L"password");
 
     header(L"Media");
-    item(L"Color Picker", 0xE790, L"colorpicker");
+    item(L"Color Picker",   0xE790, L"colorpicker");
+    item(L"File Converter", 0xE8B5, L"fileconv");
+    item(L"Snake",          0xE7FC, L"snake");
 
     nav_.SelectionChanged(
         [this](winrt::NavigationView const&,
@@ -246,6 +255,14 @@ IModulePage* Shell::EnsurePage(winrt::hstring const& tag) {
         page = MakeGuidPage();
     } else if (tag == L"graph") {
         page = MakeGraphPage();
+    } else if (tag == L"calc") {
+        page = MakeCalcPage();
+    } else if (tag == L"python") {
+        page = MakePythonPage();
+    } else if (tag == L"fileconv") {
+        page = MakeFileConvertPage();
+    } else if (tag == L"snake") {
+        page = MakeSnakePage();
     } else if (tag == L"security") {
         page = MakeSecurityPage();
     } else if (tag == L"alwaystop") {

@@ -1,10 +1,11 @@
-# SuperWin v2.3.6
+# SuperWin v2.5.0
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
-built-in utility. Sixteen tools (grouped into categories), a global clipboard quick-picker,
-a Desmos-style graphing calculator with a built-in CAS, a live system monitor,
-self-contained deployment, and automatic updates.
+built-in utility. Twenty tools (grouped into categories), a global clipboard quick-picker,
+a four-class Calculator with a built-in CAS and graphing, a Python IDE, a file-type
+converter, a Snake game, a live system monitor, self-contained deployment, and automatic
+updates.
 
 > **Windows 10/11, 64-bit.** Ships self-contained (the Windows App Runtime is bundled),
 > so there is **no separate runtime to install**.
@@ -21,11 +22,11 @@ self-contained deployment, and automatic updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.3.6/SuperWin_v2.3.6.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.0/SuperWin_v2.5.0.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.3.6.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.5.0.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -64,7 +65,9 @@ update. It then downloads a portable build into your user folder, swaps the file
   **No highlight** option to clear), alignment, bullet/numbered lists, undo/redo, and **RTF /
   TXT** open & save.
 - **Color Picker** — full colour wheel, **hex / RGB** with copy, and a screen eyedropper.
-- **Keep Awake** — stop sleep / screen-off, optionally for a fixed duration.
+- **Sleep** 🌙 (formerly Keep Awake) — keep the PC/screen awake (optionally for a fixed
+  duration), and schedule **Restart**, **Shut Down** or **Hibernate** *in N minutes* with a
+  cancelable countdown, plus a one-click jump to **Windows Update**.
 - **Hash & Checksum** — **MD5 / SHA-1 / SHA-256** of text or files (CNG/BCrypt).
 - **Network Info** — adapters, IPv4/IPv6, MAC, and a quick ping.
 - **Unit Converter** — length / mass / temperature / data-size units, plus number bases.
@@ -73,7 +76,19 @@ update. It then downloads a portable build into your user folder, swaps the file
 - **JSON Formatter** — pretty-print, minify, and validate JSON (with parse-error messages).
 - **GUID Generator** — random version-4 GUIDs, single or in bulk, with uppercase / hyphen /
   brace options.
-- **Graphing Calculator** — a **TI-Nspire CX II CAS-style** plotter: an **editable LaTeX equation
+- **Calculator** — a unified calculator with **four tabs**: **Class I** (basic), **Class II**
+  (scientific), **Class III** (advanced: fractions, bases, constants) and **Class IV CAS**.
+  Class I &amp; II offer **Non-Cursor** (TI-30Xa-style immediate execution) and **Cursor**
+  (TI-30XIIS-style expression entry) modes; Class II can switch between **SuperMathFont v2.1**
+  pretty 2D math (TI-30XS MultiView-style) and plain one-line text. **Class IV CAS** is the full
+  graphing/CAS engine (below).
+- **Python IDE** — a code editor with **Python syntax highlighting** (Dev) and one-click **Run**
+  through your installed Python interpreter, streaming program output. *(Editing works without
+  Python; running needs Python on your PATH.)*
+- **File Converter** — convert **images** between PNG / JPG / BMP / GIF / TIFF / WEBP / HEIC / ICO
+  (built-in Windows Imaging), and **DOCX ↔ PDF** when Microsoft Word is installed.
+- **Snake** 🐍 — the classic game on a sleek themed board (arrows / WASD, score, restart).
+- **Class IV CAS / Graphing** — a **TI-Nspire CX II CAS-style** plotter: an **editable LaTeX equation
   list on the left** (MathLive in a WebView2) that renders **true typeset math as you type** — a
   tall **∫**, real **fraction** bars, **Σ / Π**, radicals and roman `sin`/`cos` — with the plot on
   the **right**. Integrals, **summations** `\sum`, **products** `\prod`, derivatives and fractions
@@ -99,6 +114,16 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
+- **2.5.0** — **Unified Calculator** with four tabs (**Class I / II / III / IV CAS**): the same
+  sleek calculator at four power levels, with **Non-Cursor** (TI-30Xa) and **Cursor** (TI-30XIIS)
+  modes for Class I & II and a **SuperMathFont v2.1** ⇄ plain-text toggle. New **Python IDE** (Dev)
+  with syntax highlighting and one-click **Run**, a new **File Converter** (Media: images via WIC,
+  plus **DOCX ↔ PDF** with Word), and a new **Snake** game 🐍. **Keep Awake is now Sleep** 🌙 with
+  scheduled **Restart / Shut Down / Hibernate** timers and a **Windows Update** shortcut. Graphing
+  fixes: steep curves (`x^3`…`x^10`) plot correctly, multi-digit exponents keep the cursor up, a
+  **SuperMathFont v2.1** badge, and Σ / Π / d/dx / ∫ **insert buttons**. The **password** strength
+  bar is now colour-coded and correct on first launch; **Home** is one big category-grouped grid and
+  the collapsed nav shows category separators.
 - **2.3.6** — **Real LaTeX equations in the Graphing Calculator (MathView2).** A new
   **TI-Nspire CX II CAS-style** editor on the **left** (powered by MathLive in a WebView2) renders
   **true typeset math as you type** — a tall **∫**, real **fraction** bars, **Σ / Π**, radicals,

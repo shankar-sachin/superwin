@@ -72,6 +72,10 @@ std::string Command(const std::string& s, size_t& i) {
 
     if (name == "frac" || name == "dfrac" || name == "tfrac") {
         const std::string a = ArgRaw(s, i), b = ArgRaw(s, i);
+        // d/dx written as a fraction (\frac{d}{dx}(...) or \frac{\mathrm d}{\mathrm d x}(...))
+        // is the derivative operator, not a literal quotient: apply it to whatever
+        // factor follows. The body keeps its own parentheses, so deriv((x^(2))) parses.
+        if (a == "d" && b == "dx") return "deriv(" + Convert(s, i) + ")";
         return "((" + a + ")/(" + b + "))";
     }
     if (name == "sqrt") {

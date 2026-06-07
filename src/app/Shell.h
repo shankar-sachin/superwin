@@ -38,6 +38,10 @@ std::unique_ptr<IModulePage> MakeTextPage();
 std::unique_ptr<IModulePage> MakeJsonPage();
 std::unique_ptr<IModulePage> MakeGuidPage();
 std::unique_ptr<IModulePage> MakeGraphPage();
+std::unique_ptr<IModulePage> MakeCalcPage();
+std::unique_ptr<IModulePage> MakePythonPage();
+std::unique_ptr<IModulePage> MakeFileConvertPage();
+std::unique_ptr<IModulePage> MakeSnakePage();
 std::unique_ptr<IModulePage> MakeSecurityPage();
 // Home gets a navigate callback so its tiles can jump to a section by tag.
 std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> navigate);

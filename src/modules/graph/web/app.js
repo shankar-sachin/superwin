@@ -10,8 +10,23 @@
   var PALETTE = ["#4f8ef7", "#ff454a", "#34c759", "#ff9f0a", "#af52de", "#5ac8fa"];
   var rows = [];
   var nextId = 1;
+  var activeMf = null;  // the math-field that last had focus (insert target)
 
   function rowsEl() { return document.getElementById("rows"); }
+
+  // Insert a LaTeX snippet into the focused (or last) equation field. Used by the
+  // toolbar buttons for √, fractions, Σ, Π, ∫ and d/dx so these are reachable
+  // without memorising LaTeX. Jumps the cursor to the first \placeholder{}.
+  function insertLatex(latex) {
+    var mf = activeMf;
+    if (!mf) {
+      var all = document.querySelectorAll("math-field.mf");
+      mf = all[all.length - 1];
+    }
+    if (!mf) return;
+    mf.focus();
+    mf.insert(latex, { focus: true, selectionMode: "placeholder" });
+  }
 
   function post() {
     if (window.chrome && window.chrome.webview) {
@@ -57,12 +72,18 @@
     var mf = document.createElement("math-field");
     mf.className = "mf";
     mf.setAttribute("math-virtual-keyboard-policy", "manual");
-    if ("smartMode" in mf) mf.smartMode = true;
+    // smartMode auto-commits a single-character superscript, which kicks the
+    // caret back down to the baseline after one digit -- so x^2 then 3 became
+    // x^2·3 instead of x^23. Leaving it off keeps the caret in the exponent so
+    // multi-digit powers like x^234 work; inline shortcuts (sin, cos, ...) still
+    // expand. Press the Right arrow to leave the exponent, as on a TI-30XIIS.
+    if ("smartMode" in mf) mf.smartMode = false;
     mf.value = r.latex;
     mf.addEventListener("input", function () {
       r.latex = mf.value;
       post();
     });
+    mf.addEventListener("focusin", function () { activeMf = mf; });
 
     var eye = document.createElement("button");
     eye.type = "button";
@@ -112,6 +133,23 @@
       MathfieldElement.soundsDirectory = null;
     }
     document.getElementById("add").addEventListener("click", function () { makeRow(); });
+
+    // Insert toolbar: each button drops a LaTeX template into the focused field.
+    var TOOLS = [
+      { id: "ins-frac",  latex: "\\frac{\\placeholder{}}{\\placeholder{}}" },
+      { id: "ins-sqrt",  latex: "\\sqrt{\\placeholder{}}" },
+      { id: "ins-pow",   latex: "^{\\placeholder{}}" },
+      { id: "ins-sum",   latex: "\\sum_{n=1}^{10}\\placeholder{}" },
+      { id: "ins-prod",  latex: "\\prod_{n=1}^{5}\\placeholder{}" },
+      { id: "ins-int",   latex: "\\int_{0}^{x}\\placeholder{}\\,dx" },
+      { id: "ins-deriv", latex: "\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(\\placeholder{}\\right)" },
+      { id: "ins-pi",    latex: "\\pi" }
+    ];
+    TOOLS.forEach(function (t) {
+      var el = document.getElementById(t.id);
+      if (el) el.addEventListener("click", function () { insertLatex(t.latex); });
+    });
+
     makeRow({ latex: "\\sin(x)" });  // a friendly starting curve
   });
 })();

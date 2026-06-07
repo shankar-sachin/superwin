@@ -330,21 +330,30 @@ private:
             auto brush = Brush(item.color);
             winrt::Polyline poly; poly.Stroke(brush); poly.StrokeThickness(2.6);
             poly.StrokeLineJoin(winrt::PenLineJoin::Round);
-            bool have = false; double prevPy = 0;
+            bool have = false, prevAbove = false, prevBelow = false;
             auto flush = [&] {
                 if (poly.Points().Size() >= 2) canvas_.Children().Append(poly);
                 poly = winrt::Polyline(); poly.Stroke(brush); poly.StrokeThickness(2.6);
                 poly.StrokeLineJoin(winrt::PenLineJoin::Round);
             };
+            // Clamp y to one extra viewport of headroom so a steep-but-continuous
+            // curve (x^3 .. x^n) stays a single connected polyline that simply runs
+            // off the top/bottom, instead of being shattered into <2-point segments
+            // that never draw. A genuine asymptote (1/x, tan x) teleports from above
+            // the screen straight to below it with no on-screen sample in between --
+            // that, and only that, breaks the line so we don't draw a false vertical.
             const int cols = static_cast<int>(W);
+            const double pad = vymax_ - vymin_;
+            const double yLo = vymin_ - pad, yHi = vymax_ + pad;
             for (int i = 0; i <= cols; ++i) {
                 const double x = vxmin_ + (vxmax_ - vxmin_) * i / cols;
                 const double y = (*fn)(x);
                 if (!std::isfinite(y)) { flush(); have = false; continue; }
-                const double py = sy(y);
-                if (have && std::fabs(py - prevPy) > H * 1.5) flush();
-                poly.Points().Append(winrt::Point{static_cast<float>(sx(x)), static_cast<float>(py)});
-                prevPy = py; have = true;
+                const bool above = y > vymax_, below = y < vymin_;
+                if (have && ((above && prevBelow) || (below && prevAbove))) { flush(); have = false; }
+                const double yc = y < yLo ? yLo : (y > yHi ? yHi : y);
+                poly.Points().Append(winrt::Point{static_cast<float>(sx(x)), static_cast<float>(sy(yc))});
+                prevAbove = above; prevBelow = below; have = true;
             }
             flush();
         }

@@ -44,6 +44,10 @@ add_library(superwin_core STATIC
     src/modules/graph/GraphLogic.cpp
     src/modules/graph/Expr.cpp
     src/modules/graph/Latex.cpp
+    src/modules/calc/CalcLogic.cpp
+    src/modules/python/PythonRunLogic.cpp
+    src/modules/fileconv/ImageConvertLogic.cpp
+    src/modules/snake/SnakeLogic.cpp
     src/modules/security/SecurityLogic.cpp
 )
 target_include_directories(superwin_core PUBLIC src)
@@ -74,6 +78,10 @@ if (SUPERWIN_BUILD_TESTS)
         tests/GraphLogicTests.cpp
         tests/ExprTests.cpp
         tests/LatexTests.cpp
+        tests/CalcLogicTests.cpp
+        tests/PythonRunLogicTests.cpp
+        tests/ImageConvertLogicTests.cpp
+        tests/SnakeLogicTests.cpp
         tests/SecurityLogicTests.cpp
     )
     target_link_libraries(SuperWin_tests PRIVATE superwin_core Catch2::Catch2WithMain)
@@ -116,6 +124,10 @@ add_custom_command(TARGET SuperWin POST_BUILD
 
 if (SUPERWIN_ENABLE_WINUI)
     target_compile_definitions(SuperWin PRIVATE SUPERWIN_ENABLE_WINUI=1)
+    # WIC image transcoding, OLE automation (Word COM), and the common file dialogs
+    # used by the File Converter page; PowrProf/Advapi32 for the Sleep page's power
+    # actions (SetSuspendState + ExitWindowsEx shutdown privilege).
+    target_link_libraries(SuperWin PRIVATE windowscodecs oleaut32 comdlg32 PowrProf advapi32)
 
     # WinUI 3 UI: shell + module pages (these pull in C++/WinRT headers).
     target_sources(SuperWin PRIVATE
@@ -140,6 +152,10 @@ if (SUPERWIN_ENABLE_WINUI)
         src/modules/jsonfmt/JsonPage.cpp
         src/modules/guid/GuidPage.cpp
         src/modules/graph/GraphPage.cpp
+        src/modules/calc/CalcPage.cpp
+        src/modules/python/PythonPage.cpp
+        src/modules/fileconv/FileConvertPage.cpp
+        src/modules/snake/SnakePage.cpp
         src/modules/security/SecurityPage.cpp
         src/modules/alwaystop/AlwaysOnTopPage.cpp
     )
@@ -155,6 +171,13 @@ if (SUPERWIN_ENABLE_WINUI)
             "${CMAKE_SOURCE_DIR}/src/modules/graph/web"
             "$<TARGET_FILE_DIR:SuperWin>/web"
         COMMENT "Deploying graph web assets (MathLive)")
+    # Deploy the Python IDE's web editor (CodeMirror) next to the exe, mapped to a
+    # virtual host by the WebView2. Bundled by the installer with the rest of Release.
+    add_custom_command(TARGET SuperWin POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/src/modules/python/web"
+            "$<TARGET_FILE_DIR:SuperWin>/pyweb"
+        COMMENT "Deploying Python IDE web assets")
     # Unpackaged (no MSIX) desktop app -> bootstrapper loads the runtime.
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_WindowsPackageType "None")
     set_property(TARGET SuperWin PROPERTY VS_GLOBAL_AppxPackage "false")

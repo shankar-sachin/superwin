@@ -43,6 +43,21 @@ TEST_CASE("LaTeX summations translate and evaluate", "[Latex]") {
     REQUIRE_THAT(EvalLatex("\\sum_{n=1}^{3}x^{n}", 2.0), WithinAbs(14.0, 1e-9));
 }
 
+TEST_CASE("LaTeX products translate and evaluate", "[Latex]") {
+    // Π_{n=1}^{4} n -> 24 (constant in x); Π_{n=1}^{3} x = x^3.
+    REQUIRE_THAT(EvalLatex("\\prod_{n=1}^{4}n", 0.0), WithinAbs(24.0, 1e-9));
+    REQUIRE_THAT(EvalLatex("\\prod_{n=1}^{3}x", 2.0), WithinAbs(8.0, 1e-9));
+}
+
+TEST_CASE("LaTeX d/dx written as a fraction is a derivative", "[Latex]") {
+    // \frac{d}{dx}(...) and \frac{\mathrm{d}}{\mathrm{d}x}(...) both differentiate.
+    REQUIRE_THAT(EvalLatex("\\frac{d}{dx}\\left(x^{2}\\right)", 2.5), WithinAbs(5.0, 1e-9));
+    REQUIRE_THAT(EvalLatex("\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(x^{3}\\right)", 2.0),
+                 WithinAbs(12.0, 1e-9));
+    // A genuine fraction must still be a quotient, not a derivative.
+    REQUIRE_THAT(EvalLatex("\\frac{1}{x}", 4.0), WithinAbs(0.25, 1e-9));
+}
+
 TEST_CASE("LaTeX integral graphs an antiderivative", "[Latex]") {
     // ∫ cos(x) dx -> sin(x)
     REQUIRE_THAT(EvalLatex("\\int\\cos\\left(x\\right)dx", 1.0), WithinAbs(std::sin(1.0), 1e-7));

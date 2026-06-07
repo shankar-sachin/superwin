@@ -24,6 +24,40 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.5.0</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.5.0</h2>
+        <ul>
+          <li><b>New unified Calculator</b> with four tabs — <b>Class I</b>, <b>Class II</b>,
+              <b>Class III</b> and <b>Class IV CAS</b> — each a sleek calculator with progressively
+              more power. Class I &amp; II add <b>Non-Cursor</b> (TI-30Xa-style) and <b>Cursor</b>
+              (TI-30XIIS-style) modes, and Class II can switch between <b>SuperMathFont v2.1</b>
+              pretty 2D math and plain text. Class IV CAS is the full graphing/CAS engine.</li>
+          <li><b>Graphing fixes:</b> steep curves like <code>x^3</code>…<code>x^10</code> now plot
+              correctly, multi-digit exponents keep the cursor up (type <code>x^234</code>), and a
+              <b>SuperMathFont v2.1</b> badge plus one-tap <b>Σ / Π / d/dx / ∫</b> insert buttons.</li>
+          <li><b>New Python IDE</b> (Dev) with syntax highlighting and one-click <b>Run</b> via your
+              system Python.</li>
+          <li><b>New File Converter</b> (Media): convert images (PNG/JPG/WEBP/HEIC/ICO…) and
+              <b>DOCX ↔ PDF</b> (with Microsoft Word).</li>
+          <li><b>New Snake game</b> 🐍 (Media).</li>
+          <li><b>Keep Awake is now Sleep</b> 🌙 — schedule <b>Restart</b>, <b>Shut Down</b> or
+              <b>Hibernate</b> in N minutes, and jump to <b>Windows Update</b>.</li>
+          <li><b>Password generator</b> shows a colour-coded strength bar and the right entropy on
+              first launch; <b>Home</b> is one big category-grouped grid and the collapsed nav shows
+              category separators.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Sat, 06 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.5.0/SuperWin_v2.5.0_portable.zip"
+        sparkle:version="2.5.0"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.3.6</title>
       <description><![CDATA[
         <h2>SuperWin 2.3.6</h2>

@@ -116,16 +116,28 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
         body.Children().Append(ui::Card(inner));
     }
 
-    // Quick access — tools grouped into categories, each a responsive grid.
+    // Quick access — one big grid that fills the window, with category bands
+    // separated by a thin divider, all inside a single card.
     {
-        auto section = ui::VStack(16);
+        auto section = ui::VStack(12);
         section.Children().Append(ui::Text(L"Quick access", 15, true));
 
+        auto bigCard = ui::VStack(14);
+        bool first = true;
         auto group = [&](winrt::hstring title, std::vector<winrt::Button> tiles) {
+            if (!first) {
+                winrt::Border divider;
+                divider.Height(1);
+                divider.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
+                divider.Margin(winrt::Thickness{0, 4, 0, 4});
+                if (auto st = ui::ThemeBrush(L"CardStrokeColorDefaultBrush")) divider.Background(st);
+                bigCard.Children().Append(divider);
+            }
+            first = false;
             auto g = ui::VStack(8);
             g.Children().Append(ui::Caption(title));
-            g.Children().Append(ui::Card(TileGrid(std::move(tiles))));
-            section.Children().Append(g);
+            g.Children().Append(TileGrid(std::move(tiles)));
+            bigCard.Children().Append(g);
         };
 
         {
@@ -133,7 +145,7 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
             t.push_back(Tile(L"Volume\nCustomizer", 0xE767, L"volume", navigate));
             t.push_back(Tile(L"Diagnostics", 0xE9D9, L"diagnostics", navigate));
             t.push_back(Tile(L"Network\nInfo", 0xE968, L"netinfo", navigate));
-            t.push_back(Tile(L"Keep\nAwake", 0xE945, L"keepawake", navigate));
+            t.push_back(Tile(L"Sleep", 0xE708, L"keepawake", navigate));
             t.push_back(Tile(L"Always\nOn Top", 0xE840, L"alwaystop", navigate));
             group(L"System", std::move(t));
         }
@@ -149,12 +161,13 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
             t.push_back(Tile(L"Hash &\nChecksum", 0xE72E, L"hash", navigate));
             t.push_back(Tile(L"JSON\nFormatter", 0xE943, L"json", navigate));
             t.push_back(Tile(L"GUID\nGenerator", 0xE928, L"guid", navigate));
+            t.push_back(Tile(L"Python\nIDE", 0xE943, L"python", navigate));
             group(L"Developer", std::move(t));
         }
         {
             std::vector<winrt::Button> t;
             t.push_back(Tile(L"Unit\nConverter", 0xE8EF, L"convert", navigate));
-            t.push_back(Tile(L"Graphing\nCalculator", 0xE9D2, L"graph", navigate));
+            t.push_back(Tile(L"Calculator", 0xE9D2, L"calc", navigate));
             group(L"Math", std::move(t));
         }
         {
@@ -166,9 +179,12 @@ std::unique_ptr<IModulePage> MakeHomePage(std::function<void(winrt::hstring)> na
         {
             std::vector<winrt::Button> t;
             t.push_back(Tile(L"Color\nPicker", 0xE790, L"colorpicker", navigate));
+            t.push_back(Tile(L"File\nConverter", 0xE8B5, L"fileconv", navigate));
+            t.push_back(Tile(L"Snake", 0xE7FC, L"snake", navigate));
             group(L"Media", std::move(t));
         }
 
+        section.Children().Append(ui::Card(bigCard));
         body.Children().Append(section);
     }
 

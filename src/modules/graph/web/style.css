@@ -28,7 +28,37 @@ body {
   box-sizing: border-box;
 }
 
+#toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+#toolbar button {
+  min-width: 34px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+#toolbar button:hover { background: var(--hover); }
+
 #rows { display: flex; flex-direction: column; gap: 8px; }
+
+#brand {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: .3px;
+  color: var(--muted);
+  opacity: .85;
+  user-select: none;
+}
 
 .row {
   display: flex;
