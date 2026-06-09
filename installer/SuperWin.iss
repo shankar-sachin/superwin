@@ -8,7 +8,7 @@
 ;  see the [Files] section paths below.)
 
 #define AppName "SuperWin"
-#define AppVersion "2.5.1"
+#define AppVersion "2.5.2"
 #define AppPublisher "SuperWin"
 #define AppExe "SuperWin.exe"
 
@@ -42,8 +42,8 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "autostart"; Description: "Launch {#AppName} when I sign in"; GroupDescription: "Startup:"
 
 [Files]
-; SuperWin is built self-contained, so the entire Release output (exe,
-; WinSparkle.dll, the Windows App Runtime DLLs, resources.pri, the
+; SuperWin is built self-contained, so the entire Release output (exe, the
+; Windows App Runtime DLLs, resources.pri, the web/ assets, the
 ; Microsoft.UI.Xaml theme folder and locale subfolders) must ship. Exclude
 ; dev-only artifacts and the test binary.
 Source: "..\build\Release\*"; DestDir: "{app}"; \

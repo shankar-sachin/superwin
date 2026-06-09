@@ -45,6 +45,8 @@ std::string HttpGet(const std::wstring& url) {
     HINTERNET session = ::WinHttpOpen(L"SuperWin-Updater/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
                                       WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!session) return {};
+    // Bound every phase so a dead connection can't hang the checker thread.
+    ::WinHttpSetTimeouts(session, 15000, 15000, 15000, 30000);
     if (HINTERNET conn = ::WinHttpConnect(session, host, uc.nPort, 0)) {
         const DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
         if (HINTERNET req = ::WinHttpOpenRequest(conn, L"GET", path, nullptr, WINHTTP_NO_REFERER,
@@ -146,10 +148,20 @@ bool Check(std::string& version, std::wstring& zipUrl, std::wstring& notes) {
     const std::string url = Settings::Instance().GetString("update.appcastUrl", kDefaultAppcastUrl);
     const std::string xml = HttpGet(Utf8ToWide(url));
     if (xml.empty()) return false;
-    version = Attr(xml, "sparkle:version=\"");
-    const std::string enc = Attr(xml, "url=\"");  // first enclosure (latest item)
-    if (version.empty() || enc.empty()) return false;
-    zipUrl = Utf8ToWide(enc);
+    // Read version + url from the first <item>'s <enclosure> tag ONLY -- scanning
+    // the whole document would pick up any url="..." that happens to appear
+    // earlier (e.g. inside a release-notes CDATA block).
+    const auto item = xml.find("<item>");
+    if (item == std::string::npos) return false;
+    const auto encPos = xml.find("<enclosure", item);
+    if (encPos == std::string::npos) return false;
+    const auto encEnd = xml.find('>', encPos);
+    const std::string enc = xml.substr(encPos, encEnd == std::string::npos ? std::string::npos
+                                                                           : encEnd - encPos);
+    version = Attr(enc, "sparkle:version=\"");
+    const std::string encUrl = Attr(enc, "url=\"");
+    if (version.empty() || encUrl.empty()) return false;
+    zipUrl = Utf8ToWide(encUrl);
     notes = FirstItemNotes(xml);
     return true;
 }

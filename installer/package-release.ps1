@@ -50,6 +50,10 @@ try {
         if ($excludeExact -contains $name) { return }
         if ($excludeExt -contains $_.Extension.ToLower()) { return }
         foreach ($p in $excludeLike) { if ($name -like $p) { return } }
+        # Files INSIDE an excluded directory (e.g. the SuperWin.exe.WebView2 cache
+        # left behind by running the app from build\Release) -- match by path, the
+        # way the .iss "\*.WebView2\*" exclude does, not just by leaf name.
+        if ($_.FullName -like '*.WebView2\*') { return }
         $rel = $_.FullName.Substring($release.Length).TrimStart('\')
         $dest = Join-Path $staging $rel
         New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null

@@ -53,7 +53,7 @@ double ApplyUnaryFunc(const std::string& f, double x, AngleMode angle, bool& ok)
 // ---- recursive-descent expression evaluator --------------------------------
 class Eval {
 public:
-    Eval(const std::string& s, AngleMode angle) : s_(s), angle_(angle) {}
+    Eval(const std::string& s, AngleMode angle, double ans) : s_(s), angle_(angle), ans_(ans) {}
     double Run() {
         const double v = Expr();
         Skip();
@@ -64,6 +64,7 @@ public:
 private:
     const std::string& s_;
     AngleMode angle_;
+    double ans_ = 0.0;
     size_t pos_ = 0;
 
     void Skip() { while (pos_ < s_.size() && std::isspace(static_cast<unsigned char>(s_[pos_]))) ++pos_; }
@@ -166,6 +167,7 @@ private:
         std::string id = s_.substr(start, pos_ - start);
         if (id == "pi") return kPi;
         if (id == "e") return kE;
+        if (id == "Ans" || id == "ans" || id == "ANS") return ans_;  // previous result
         if (!Eat('(')) throw std::runtime_error("unknown name '" + id + "'");
         double arg = Expr();
         if (!Eat(')')) throw std::runtime_error("missing ')'");
@@ -194,12 +196,25 @@ int OpPrec(char op) {
     return 0;
 }
 
+// Display glyph for an operator in the echo line (UTF-8).
+const char* OpGlyph(char op) {
+    switch (op) {
+        case '+': return "+";
+        case '-': return "\xE2\x88\x92";  // −
+        case '*': return "\xC3\x97";      // ×
+        case '/': return "\xC3\xB7";      // ÷
+        case '^': return "^";
+        default:  return "?";
+    }
+}
+
 }  // namespace
 
-std::optional<double> EvaluateCalc(const std::string& expr, AngleMode angle, std::string& error) {
+std::optional<double> EvaluateCalc(const std::string& expr, AngleMode angle, std::string& error,
+                                   double ans) {
     if (expr.find_first_not_of(" \t") == std::string::npos) { error = "empty"; return std::nullopt; }
     try {
-        const double v = Eval(expr, angle).Run();
+        const double v = Eval(expr, angle, ans).Run();
         if (!std::isfinite(v)) { error = "math error"; return std::nullopt; }
         return v;
     } catch (const std::exception& e) {
@@ -226,6 +241,7 @@ std::string FormatCalc(double v) {
 void ImmediateCalc::Digit(int d) {
     if (error_) ClearAll();
     lastWasOp_ = false;
+    equalsEcho_.clear();
     if (!typing_) { buf_.clear(); typing_ = true; }
     if (buf_ == "0") buf_.clear();
     if (buf_ == "-0") buf_ = "-";
@@ -236,6 +252,7 @@ void ImmediateCalc::Digit(int d) {
 void ImmediateCalc::Dot() {
     if (error_) ClearAll();
     lastWasOp_ = false;
+    equalsEcho_.clear();
     if (!typing_) { buf_ = "0"; typing_ = true; }
     if (buf_.find('.') == std::string::npos) buf_ += '.';
 }
@@ -256,6 +273,7 @@ void ImmediateCalc::Reduce(int newPrec, bool rightAssoc) {
 
 void ImmediateCalc::Op(char op) {
     if (error_) return;
+    equalsEcho_.clear();
     // Pressing a second operator with no operand between just swaps the operator.
     if (lastWasOp_ && !pending_.empty()) { pending_.back().op = op; return; }
     Reduce(OpPrec(op), op == '^');  // ^ is right-associative
@@ -268,7 +286,14 @@ void ImmediateCalc::Op(char op) {
 
 void ImmediateCalc::Equals() {
     if (error_) return;
+    // Build the full "a op b op c = " echo from the pending chain + current entry,
+    // so the top line reads back the whole calculation after '='.
+    std::string e;
+    for (const auto& p : pending_) { e += FormatCalc(p.val); e += ' '; e += OpGlyph(p.op); e += ' '; }
+    e += FormatCalc(display_);
+    e += " =";
     Reduce(0, false);  // collapse the whole stack
+    equalsEcho_ = error_ ? std::string() : e;
     lastWasOp_ = false;
     typing_ = false;
     buf_.clear();
@@ -277,6 +302,7 @@ void ImmediateCalc::Equals() {
 void ImmediateCalc::Percent() {
     if (error_) return;
     lastWasOp_ = false;
+    equalsEcho_.clear();
     display_ /= 100.0;
     buf_ = FormatCalc(display_);
     typing_ = false;
@@ -285,6 +311,7 @@ void ImmediateCalc::Percent() {
 void ImmediateCalc::Negate() {
     if (error_) return;
     lastWasOp_ = false;
+    equalsEcho_.clear();
     display_ = -display_;
     if (typing_) buf_ = FormatCalc(display_);
 }
@@ -292,6 +319,7 @@ void ImmediateCalc::Negate() {
 void ImmediateCalc::Func(const std::string& fn, AngleMode angle) {
     if (error_) ClearAll();
     lastWasOp_ = false;
+    equalsEcho_.clear();
     bool ok = false;
     const double r = ApplyUnaryFunc(fn, display_, angle, ok);
     if (!ok) return;  // unknown function: ignore the key
@@ -304,6 +332,7 @@ void ImmediateCalc::Func(const std::string& fn, AngleMode angle) {
 void ImmediateCalc::SetConst(double v) {
     if (error_) ClearAll();
     lastWasOp_ = false;
+    equalsEcho_.clear();
     display_ = v;
     typing_ = false;
     buf_.clear();
@@ -322,6 +351,7 @@ void ImmediateCalc::ClearEntry() {
     buf_.clear();
     typing_ = false;
     lastWasOp_ = false;
+    equalsEcho_.clear();
     error_ = false;
 }
 
@@ -331,6 +361,7 @@ void ImmediateCalc::ClearAll() {
     lastWasOp_ = false;
     error_ = false;
     buf_.clear();
+    equalsEcho_.clear();
     pending_.clear();
 }
 
@@ -338,6 +369,21 @@ std::string ImmediateCalc::Display() const {
     if (error_) return "Error";
     if (typing_ && !buf_.empty()) return buf_;
     return FormatCalc(display_);
+}
+
+std::string ImmediateCalc::Echo() const {
+    if (error_) return "";
+    if (!equalsEcho_.empty()) return equalsEcho_;
+    // The pending AOS chain, e.g. "3 + 4 × " -- the "previous" context above the
+    // current entry, matching how a two-line scientific calculator reads back.
+    std::string s;
+    for (const auto& p : pending_) {
+        s += FormatCalc(p.val);
+        s += ' ';
+        s += OpGlyph(p.op);
+        s += ' ';
+    }
+    return s;
 }
 
 }  // namespace superwin

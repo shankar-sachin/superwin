@@ -51,6 +51,22 @@ TEST_CASE("EvaluateCalc honors angle mode", "[calc]") {
     REQUIRE_THAT(E("asin(1)", AngleMode::Degrees), WithinAbs(90.0, 1e-9));
 }
 
+TEST_CASE("EvaluateCalc resolves Ans to the previous result", "[calc]") {
+    std::string err;
+    auto r = EvaluateCalc("Ans+2", AngleMode::Radians, err, 5.0);
+    REQUIRE(r.has_value());
+    REQUIRE_THAT(*r, WithinAbs(7.0, 1e-12));
+    r = EvaluateCalc("2Ans", AngleMode::Radians, err, 5.0);  // implicit multiplication
+    REQUIRE(r.has_value());
+    REQUIRE_THAT(*r, WithinAbs(10.0, 1e-12));
+    r = EvaluateCalc("ans^2", AngleMode::Radians, err, 3.0);  // case-insensitive spellings
+    REQUIRE(r.has_value());
+    REQUIRE_THAT(*r, WithinAbs(9.0, 1e-12));
+    r = EvaluateCalc("Ans", AngleMode::Radians, err);  // defaults to 0
+    REQUIRE(r.has_value());
+    REQUIRE_THAT(*r, WithinAbs(0.0, 1e-12));
+}
+
 TEST_CASE("EvaluateCalc reports errors", "[calc]") {
     std::string err;
     REQUIRE_FALSE(EvaluateCalc("1+", AngleMode::Radians, err).has_value());
@@ -99,12 +115,40 @@ TEST_CASE("ImmediateCalc honors operator precedence (AOS)", "[calc][immediate]")
     REQUIRE(d.Display() == "16");  // 8 * 2
 }
 
+TEST_CASE("ImmediateCalc Echo shows the pending operation and the '=' read-back", "[calc][immediate]") {
+    ImmediateCalc c;
+    c.Digit(8); c.Op('*');
+    REQUIRE(c.Echo() == "8 \xC3\x97 ");   // "8 × " above the entry
+    c.Digit(9);
+    REQUIRE(c.Display() == "9");
+    REQUIRE(c.Echo() == "8 \xC3\x97 ");   // pending op persists while typing
+    c.Equals();
+    REQUIRE(c.Display() == "72");
+    REQUIRE(c.Echo() == "8 \xC3\x97 9 =");  // full read-back after '='
+    c.Digit(5);
+    REQUIRE(c.Echo().empty());             // a fresh entry clears the echo
+
+    ImmediateCalc d;  // multi-term AOS chain
+    d.Digit(3); d.Op('+'); d.Digit(4); d.Op('*');
+    REQUIRE(d.Echo() == "3 + 4 \xC3\x97 ");
+}
+
 TEST_CASE("ImmediateCalc functions act on the shown value", "[calc][immediate]") {
     ImmediateCalc c;
     c.Digit(9); c.Func("sqrt", AngleMode::Radians);
     REQUIRE(c.Display() == "3");
     c.Func("sqr", AngleMode::Radians);
     REQUIRE(c.Display() == "9");
+}
+
+TEST_CASE("ImmediateCalc ClearEntry drops the entry but keeps the pending chain", "[calc][immediate]") {
+    ImmediateCalc c;
+    c.Digit(8); c.Op('+'); c.Digit(5);
+    c.ClearEntry();                    // CE: wipe the mistyped 5...
+    REQUIRE(c.Display() == "0");
+    REQUIRE(c.Echo() == "8 + ");       // ...but 8 + is still pending
+    c.Digit(3); c.Equals();
+    REQUIRE(c.Display() == "11");      // 8 + 3
 }
 
 TEST_CASE("ImmediateCalc clear and error states", "[calc][immediate]") {

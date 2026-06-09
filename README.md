@@ -1,4 +1,4 @@
-# SuperWin v2.5.1
+# SuperWin v2.5.2
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
@@ -22,11 +22,11 @@ updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.1/SuperWin_v2.5.1.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.2/SuperWin_v2.5.2.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.5.1.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.5.2.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -119,6 +119,14 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
+- **2.5.2** — **Calculator, redesigned.** Class I & II now read like real devices: a true
+  **two-line TI display** (a **DEG/RAD** annunciator and history echo above one big result line),
+  **big bold digit keys**, **accent-coloured operators**, a **red C**, and a recessed function
+  zone. Cursor mode (TI-30XIIS/TI-30XS) gains an **Ans** key — `Ans+2`, `2Ans` recall the previous
+  result — while Non-Cursor (TI-30Xa) shows the pending operation up top (`8 ×`) and the full
+  `8 × 9 =` read-back after equals. **Fixed:** the **CE** key now truly clears the current entry
+  (it was acting as backspace) while keeping the pending AOS chain. The **updater** got network
+  timeouts and appcast parsing pinned to the latest release's enclosure.
 - **2.5.1** — **Calculator re-tiered to match real TI classes.** **Class I** is now a true
   **4-function** (TI-108); **Class II** a **full scientific** (trig + inverse trig + hyperbolics,
   logs, powers, roots, factorial); **Class III** a **graphing calculator without CAS**; and

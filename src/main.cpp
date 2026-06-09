@@ -118,7 +118,7 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
-    Updater::Initialize();  // background auto-update checks via WinSparkle
+    Updater::Initialize();  // quiet background appcast check (WinHTTP self-updater)
     winrt::Microsoft::UI::Xaml::Application::Start([](auto&&) { winrt::make<App>(); });
     Updater::Shutdown();
     return 0;
@@ -229,7 +229,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR /*cmdLine*/, int) {
 
     ::SetWindowLongPtrW(host, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&ctx));
 
-    Updater::Initialize();  // background auto-update checks via WinSparkle
+    Updater::Initialize();  // quiet background appcast check (WinHTTP self-updater)
 
     MSG msg;
     while (::GetMessageW(&msg, nullptr, 0, 0) > 0) {

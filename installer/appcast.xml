@@ -1,20 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  SuperWin update feed (Sparkle "appcast" format, read by WinSparkle).
+  SuperWin update feed (Sparkle "appcast" format, read by the built-in WinHTTP
+  self-updater in src/core/Updater.cpp).
 
   How shipping an update works:
     1. Bump the version in src/Version.h and installer/SuperWin.iss, rebuild,
-       and produce a new installer/Output/SuperWin-Setup.exe.
-    2. Upload that setup.exe somewhere public (GitHub Releases, a CDN, your host).
-    3. Add a new <item> below with the new sparkle:version, the download url, and
-       (recommended) the file length in bytes and an EdDSA signature.
+       and run installer/package-release.ps1 to produce
+       installer/Output/SuperWin_v<version>.exe and
+       installer/Output/SuperWin_v<version>_portable.zip.
+    2. Upload both to the GitHub release; the <enclosure url> below must point at
+       the PORTABLE ZIP (that's what the in-place updater downloads).
+    3. Add a new <item> at the TOP (the updater reads the first item's enclosure)
+       with the new sparkle:version and the zip url.
     4. Publish this appcast.xml at the URL the app points to
        (core/Updater.cpp kDefaultAppcastUrl, overridable via the
        "update.appcastUrl" setting).
 
-  Installed copies of SuperWin poll this feed (every 24h, or via the tray's
-  "Check for updates…"); when sparkle:version is newer than the running build,
-  WinSparkle prompts the user, downloads the new setup.exe, and runs it.
+  Installed copies of SuperWin check this feed shortly after launch (or via
+  "Check for updates"); when sparkle:version is newer than the running build, the
+  app prompts, downloads the zip, swaps its files in place and relaunches.
 -->
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
@@ -22,6 +26,34 @@
     <link>https://github.com/shankar-sachin/superwin</link>
     <description>Most recent SuperWin updates</description>
     <language>en</language>
+
+    <item>
+      <title>SuperWin 2.5.2</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.5.2</h2>
+        <ul>
+          <li><b>Calculator, redesigned:</b> a real two-line TI display (DEG/RAD annunciator +
+              history echo over a big result line), big bold digit keys, accent-coloured
+              operators, a red C, and a recessed function zone — Class I &amp; II finally look
+              like proper devices.</li>
+          <li><b>Ans key</b> in Cursor mode (TI-30XIIS/TI-30XS style): recall the previous result
+              into the expression — <code>Ans+2</code>, <code>2Ans</code> all work. Non-Cursor
+              (TI-30Xa) instead shows the pending operation up top (<code>8 ×</code>) and the
+              full <code>8 × 9 =</code> read-back after equals.</li>
+          <li><b>Fixed:</b> the <b>CE</b> key now really clears the current entry (it was acting
+              as backspace) while keeping the pending AOS chain.</li>
+          <li><b>Updater hardened:</b> network timeouts on the update check, and appcast parsing
+              is pinned to the latest release's enclosure tag.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Tue, 09 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.5.2/SuperWin_v2.5.2_portable.zip"
+        sparkle:version="2.5.2"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
 
     <item>
       <title>SuperWin 2.5.1</title>

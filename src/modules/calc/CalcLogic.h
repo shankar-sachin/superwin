@@ -20,7 +20,9 @@ enum class AngleMode { Radians, Degrees };
 
 // Evaluate `expr`. Returns nullopt and fills `error` on a parse/eval failure
 // (including division by zero / domain errors that produce a non-finite value).
-std::optional<double> EvaluateCalc(const std::string& expr, AngleMode angle, std::string& error);
+// `ans` is the value of the `Ans` identifier (the previous result, TI-style).
+std::optional<double> EvaluateCalc(const std::string& expr, AngleMode angle, std::string& error,
+                                   double ans = 0.0);
 
 // Format a value for a calculator display: trims trailing zeros, collapses -0 to
 // 0, and switches to scientific notation for very large/small magnitudes.
@@ -48,6 +50,7 @@ public:
     double value() const { return display_; }
     bool   error() const { return error_; }
     std::string Display() const;                        // formatted current display
+    std::string Echo() const;                           // pending op chain, e.g. "8 × "
 
 private:
     struct Pending { double val; char op; };  // a deferred "val op _" operation
@@ -56,6 +59,7 @@ private:
     bool   error_ = false;
     bool   lastWasOp_ = false;  // last key was an operator (so the next replaces it)
     std::string buf_;        // digits being typed
+    std::string equalsEcho_; // after '=', the full "a op b = " echo for the top line
     std::vector<Pending> pending_;  // AOS operator stack (low precedence at bottom)
     // Fold the stack down while the top operation binds at least as tightly as
     // an incoming operator of precedence `newPrec` (right-assoc spares equal prec).

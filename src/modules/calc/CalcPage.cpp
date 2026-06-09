@@ -7,7 +7,8 @@
 //   * Class IV  "CAS"         : symbolic algebra (simplify, d/dx, ∫, solve).
 // Class I & II share the sleek keypad; a feature spec decides which keys and modes
 // each exposes, and both offer a "Non-Cursor" (TI-30Xa-style immediate AOS
-// execution) and a "Cursor" (TI-30XIIS-style EOS expression entry) mode. Class II
+// execution, with a true CE and the pending-op echo up top) and a "Cursor"
+// (TI-30XIIS-style EOS expression entry, with an Ans key) mode. Class II
 // can switch its display between SuperMathFont v2.1 pretty math and plain text.
 // Class III embeds MakeGraphPage(); Class IV is a native panel driving the CAS
 // (Expr/Cas). The numeric logic lives in CalcLogic + Expr + Cas (superwin_core).
@@ -85,7 +86,7 @@ struct CalcSpec {
     bool fontToggle = false;   // SuperMathFont v2.1 toggle (Class II)
 };
 
-enum class KKind { Digit, Dot, Op, Pow, Func, Const, Paren, Equals, Clear, Back, Percent, Sqr, Fact, Negate, Empty };
+enum class KKind { Digit, Dot, Op, Pow, Func, Const, Paren, Equals, Clear, ClearEntry, Back, Percent, Sqr, Fact, Negate, Ans, Empty };
 struct Key {
     std::wstring label;
     KKind kind = KKind::Empty;
@@ -115,7 +116,9 @@ private:
             modeBox_.SelectedIndex(0);
             modeBox_.SelectionChanged([this](winrt::IInspectable const&, winrt::SelectionChangedEventArgs const&) {
                 mode_ = modeBox_.SelectedIndex() == 1 ? Mode::Immediate : Mode::Cursor;
-                expr_.clear(); imm_.ClearAll(); justEvaluated_ = false; Refresh();
+                expr_.clear(); imm_.ClearAll(); justEvaluated_ = false;
+                FillKeypad();  // Cursor shows an Ans key where Non-Cursor has CE
+                Refresh();
             });
             auto l = ui::Caption(L"Mode"); l.VerticalAlignment(winrt::VerticalAlignment::Center);
             opts.Children().Append(l);
@@ -146,57 +149,68 @@ private:
             fontCheck_.Unchecked(onToggle);
             opts.Children().Append(fontCheck_);
         }
-        // --- display ---
-        exprText_ = ui::Text(L"", 16);
+        // --- display: a status line (DEG/RAD indicator left, history echo right)
+        // over one big right-aligned main line, like a real two-line TI display.
+        indText_ = ui::Text(L"", 11.5);
+        indText_.VerticalAlignment(winrt::VerticalAlignment::Center);
+        if (auto b = ui::ThemeBrush(L"TextFillColorTertiaryBrush")) indText_.Foreground(b);
+        exprText_ = ui::Text(L"", 14);
         exprText_.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         exprText_.TextAlignment(winrt::TextAlignment::Right);
+        exprText_.TextWrapping(winrt::TextWrapping::NoWrap);
+        exprText_.TextTrimming(winrt::TextTrimming::CharacterEllipsis);
+        exprText_.VerticalAlignment(winrt::VerticalAlignment::Center);
         if (auto b = ui::ThemeBrush(L"TextFillColorSecondaryBrush")) exprText_.Foreground(b);
-        mainText_ = ui::Text(L"0", 36, true);
+        auto statusRow = winrt::Grid();
+        {
+            auto c0 = winrt::ColumnDefinition();
+            c0.Width(winrt::GridLengthHelper::FromValueAndType(0, winrt::GridUnitType::Auto));
+            auto c1 = winrt::ColumnDefinition();
+            c1.Width(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+            statusRow.ColumnDefinitions().Append(c0);
+            statusRow.ColumnDefinitions().Append(c1);
+        }
+        winrt::Grid::SetColumn(indText_, 0);
+        winrt::Grid::SetColumn(exprText_, 1);
+        statusRow.Children().Append(indText_);
+        statusRow.Children().Append(exprText_);
+        mainText_ = ui::Text(L"0", 40, true);
         mainText_.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         mainText_.TextAlignment(winrt::TextAlignment::Right);
+        mainText_.TextWrapping(winrt::TextWrapping::NoWrap);
         mainText_.TextTrimming(winrt::TextTrimming::CharacterEllipsis);
-        auto disp = ui::VStack(2);
-        disp.Children().Append(exprText_);
+        mainText_.VerticalAlignment(winrt::VerticalAlignment::Bottom);
+        auto disp = winrt::Grid();
+        {
+            auto r0 = winrt::RowDefinition();
+            r0.Height(winrt::GridLengthHelper::FromValueAndType(0, winrt::GridUnitType::Auto));
+            auto r1 = winrt::RowDefinition();
+            r1.Height(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+            disp.RowDefinitions().Append(r0);
+            disp.RowDefinitions().Append(r1);
+        }
+        winrt::Grid::SetRow(statusRow, 0);
+        winrt::Grid::SetRow(mainText_, 1);
+        disp.Children().Append(statusRow);
         disp.Children().Append(mainText_);
         auto dispCard = ui::Card(disp, 16);
-        dispCard.Height(108);
+        dispCard.Height(112);
         if (auto bg = ui::ThemeBrush(L"LayerFillColorDefaultBrush")) dispCard.Background(bg);
         ApplyFonts();
 
         // --- keypad: a fixed-height grid so every class is the SAME visual size.
         // Class I (few keys) gets big keys; Class II (many keys) gets compact keys,
-        // both filling the same device body via star-sized rows.
-        auto kpad = winrt::Grid();
-        kpad.Height(kKeypadHeight);
-        kpad.RowSpacing(0);
-        if (spec_.scientific) {
-            auto fnRows = FunctionKeys();
-            auto padRows = PadKeys();
-            auto rdF = winrt::RowDefinition();
-            rdF.Height(winrt::GridLengthHelper::FromValueAndType(static_cast<double>(fnRows.size()), winrt::GridUnitType::Star));
-            auto rdP = winrt::RowDefinition();
-            rdP.Height(winrt::GridLengthHelper::FromValueAndType(static_cast<double>(padRows.size()), winrt::GridUnitType::Star));
-            kpad.RowDefinitions().Append(rdF);
-            kpad.RowDefinitions().Append(rdP);
-            auto fnGrid = GridFromKeys(fnRows);
-            auto padGrid = GridFromKeys(padRows);
-            winrt::Grid::SetRow(fnGrid, 0);
-            winrt::Grid::SetRow(padGrid, 1);
-            kpad.Children().Append(fnGrid);
-            kpad.Children().Append(padGrid);
-        } else {
-            auto rd = winrt::RowDefinition();
-            rd.Height(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
-            kpad.RowDefinitions().Append(rd);
-            auto padGrid = GridFromKeys(PadKeys());
-            winrt::Grid::SetRow(padGrid, 0);
-            kpad.Children().Append(padGrid);
-        }
+        // both filling the same device body via star-sized rows. Rebuilt on mode
+        // switches because the Cursor pad has an Ans key where Non-Cursor has CE.
+        kpad_ = winrt::Grid();
+        kpad_.Height(kKeypadHeight);
+        kpad_.RowSpacing(0);
+        FillKeypad();
 
         // The "device": display + keypad framed together at a fixed width.
         auto deviceCol = ui::VStack(10);
         deviceCol.Children().Append(dispCard);
-        deviceCol.Children().Append(kpad);
+        deviceCol.Children().Append(kpad_);
         auto device = ui::Card(deviceCol, 14);
         device.Width(kDeviceWidth);
         device.HorizontalAlignment(winrt::HorizontalAlignment::Left);
@@ -207,6 +221,34 @@ private:
         page.Children().Append(device);
         root_ = page;
         Refresh();
+    }
+
+    void FillKeypad() {
+        kpad_.Children().Clear();
+        kpad_.RowDefinitions().Clear();
+        if (spec_.scientific) {
+            auto fnRows = FunctionKeys();
+            auto padRows = PadKeys();
+            auto rdF = winrt::RowDefinition();
+            rdF.Height(winrt::GridLengthHelper::FromValueAndType(static_cast<double>(fnRows.size()), winrt::GridUnitType::Star));
+            auto rdP = winrt::RowDefinition();
+            rdP.Height(winrt::GridLengthHelper::FromValueAndType(static_cast<double>(padRows.size()), winrt::GridUnitType::Star));
+            kpad_.RowDefinitions().Append(rdF);
+            kpad_.RowDefinitions().Append(rdP);
+            auto fnGrid = GridFromKeys(fnRows);
+            auto padGrid = GridFromKeys(padRows);
+            winrt::Grid::SetRow(fnGrid, 0);
+            winrt::Grid::SetRow(padGrid, 1);
+            kpad_.Children().Append(fnGrid);
+            kpad_.Children().Append(padGrid);
+        } else {
+            auto rd = winrt::RowDefinition();
+            rd.Height(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+            kpad_.RowDefinitions().Append(rd);
+            auto padGrid = GridFromKeys(PadKeys());
+            winrt::Grid::SetRow(padGrid, 0);
+            kpad_.Children().Append(padGrid);
+        }
     }
 
     void ApplyFonts() {
@@ -238,7 +280,13 @@ private:
             // parentheses or exponent, like a TI-108. Two wide keys fill the row.
             rows.push_back({{L"%", KKind::Percent, L"", 2}, {L"√", KKind::Func, L"sqrt", 2}});
         }
-        rows.push_back({{L"C", KKind::Clear, L"", 1, false}, {L"CE", KKind::Back, L""}, {L"⌫", KKind::Back, L""}, {L"÷", KKind::Op, L"/"}});
+        // Cursor mode gets the TI-30XIIS Ans key (recall the previous result into
+        // the expression); Non-Cursor gets a true CE (clear the current entry,
+        // keep the pending AOS chain).
+        rows.push_back({{L"C", KKind::Clear, L"", 1, false},
+                        immediate() ? Key{L"CE", KKind::ClearEntry, L""} : Key{L"Ans", KKind::Ans, L""},
+                        {L"⌫", KKind::Back, L""},
+                        {L"÷", KKind::Op, L"/"}});
         rows.push_back({{L"7", KKind::Digit, L"7"}, {L"8", KKind::Digit, L"8"}, {L"9", KKind::Digit, L"9"}, {L"×", KKind::Op, L"*"}});
         rows.push_back({{L"4", KKind::Digit, L"4"}, {L"5", KKind::Digit, L"5"}, {L"6", KKind::Digit, L"6"}, {L"−", KKind::Op, L"-"}});
         rows.push_back({{L"1", KKind::Digit, L"1"}, {L"2", KKind::Digit, L"2"}, {L"3", KKind::Digit, L"3"}, {L"+", KKind::Op, L"+"}});
@@ -288,8 +336,42 @@ private:
         btn.MinHeight(0);  // star rows size the keys; no floor so Class II stays compact
         btn.Padding(winrt::Thickness{0, 0, 0, 0});
         btn.Margin(winrt::Thickness{3, 3, 3, 3});
-        btn.CornerRadius(winrt::CornerRadius{10, 10, 10, 10});
-        btn.FontSize(16);
+        btn.CornerRadius(winrt::CornerRadius{8, 8, 8, 8});
+        // Role styling so the pad reads like a real device at a glance: big bold
+        // digits, accent-coloured operators, a red C, and a recessed (tinted)
+        // function zone above the digit pad.
+        double fs = 15;
+        switch (k.kind) {
+            case KKind::Digit:
+            case KKind::Dot:
+            case KKind::Negate:
+                fs = 18;
+                btn.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
+                break;
+            case KKind::Op:
+            case KKind::Pow:
+                fs = 19;
+                if (auto b = ui::ThemeBrush(L"AccentTextFillColorPrimaryBrush")) btn.Foreground(b);
+                break;
+            case KKind::Equals:
+                fs = 20;
+                break;
+            case KKind::Clear:
+                if (auto b = ui::ThemeBrush(L"SystemFillColorCriticalBrush")) btn.Foreground(b);
+                break;
+            case KKind::Func:
+            case KKind::Const:
+            case KKind::Sqr:
+            case KKind::Fact:
+            case KKind::Paren:
+            case KKind::Percent:
+                fs = spec_.scientific ? 13.5 : 15;
+                if (auto b = ui::ThemeBrush(L"ControlFillColorTertiaryBrush")) btn.Background(b);
+                break;
+            default:
+                break;
+        }
+        btn.FontSize(fs);
         if (k.accent) {
             if (auto st = winrt::Application::Current().Resources()
                               .TryLookup(winrt::box_value(winrt::hstring(L"AccentButtonStyle")))
@@ -362,6 +444,14 @@ private:
                 if (immediate()) imm_.ClearAll();
                 else { expr_.clear(); justEvaluated_ = false; }
                 break;
+            case KKind::ClearEntry:
+                if (immediate()) imm_.ClearEntry();
+                else { expr_.clear(); justEvaluated_ = false; }
+                break;
+            case KKind::Ans:
+                if (immediate()) imm_.SetConst(lastAns_);
+                else Append(L"Ans", true);
+                break;
             case KKind::Equals:
                 DoEquals();
                 break;
@@ -374,16 +464,22 @@ private:
     void NegateCursor() {
         if (expr_.empty()) { expr_ = L"-"; return; }
         std::string err;
-        auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err);
-        if (v) { evalEcho_.clear(); expr_ = Widen(FormatCalc(-*v)); justEvaluated_ = true; }
+        auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err, lastAns_);
+        if (v) {
+            evalEcho_.clear();
+            lastAns_ = -*v;
+            expr_ = Widen(FormatCalc(-*v));
+            justEvaluated_ = true;
+        }
     }
 
     void DoEquals() {
         if (immediate()) { imm_.Equals(); return; }
         std::string err;
-        auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err);
+        auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err, lastAns_);
         if (v) {
             evalEcho_ = (prettyFont_ ? Beautify(expr_) : expr_) + L" =";
+            lastAns_ = *v;  // the Ans key recalls this
             expr_ = Widen(FormatCalc(*v));
             justEvaluated_ = true;
         } else if (!expr_.empty()) {
@@ -392,10 +488,15 @@ private:
     }
 
     void Refresh() {
+        // Display indicator, like the real device's mode annunciator.
+        indText_.Text(spec_.scientific
+                          ? winrt::hstring(angle_ == AngleMode::Degrees ? L"DEG" : L"RAD")
+                          : winrt::hstring(L""));
         // Non-Cursor (TI-30Xa): immediate execution -- a single value display that
-        // clears and shows each new entry/result. No expression line.
+        // clears and shows each new entry/result, with the pending operation (the
+        // "previous" context, e.g. "8 ×") shown small on the line above.
         if (immediate()) {
-            exprText_.Text(L"");
+            exprText_.Text(winrt::hstring(Widen(imm_.Echo())));
             mainText_.Text(winrt::hstring(Widen(imm_.Display())));
             return;
         }
@@ -427,11 +528,14 @@ private:
     bool prettyFont_ = false;
     bool justEvaluated_ = false;
     bool errorFlash_ = false;
+    double lastAns_ = 0.0;   // cursor mode: the value the Ans key recalls
     std::wstring expr_;
     std::wstring evalEcho_;  // cursor mode: the "<expr> =" echo shown after '='
     ImmediateCalc imm_;
 
     winrt::UIElement root_{nullptr};
+    winrt::Grid kpad_{nullptr};
+    winrt::TextBlock indText_{nullptr};
     winrt::TextBlock exprText_{nullptr};
     winrt::TextBlock mainText_{nullptr};
     winrt::ComboBox modeBox_{nullptr};
