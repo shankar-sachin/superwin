@@ -8,7 +8,10 @@
 // Class I & II share the sleek keypad; a feature spec decides which keys and modes
 // each exposes, and both offer a "Non-Cursor" (TI-30Xa-style immediate AOS
 // execution, with a true CE and the pending-op echo up top) and a "Cursor"
-// (TI-30XIIS-style EOS expression entry, with an Ans key) mode. Class II
+// (TI-30XIIS-style EOS expression entry, with an Ans key and a blinking block
+// caret) mode. Both are skinned as a physical device: graphite body, pale-green
+// LCD, and TI-style role-coloured keys (dark digits, light functions, gold
+// constants, pink operators, red C) -- see the palette near the top. Class II
 // can switch its display between SuperMathFont v2.1 pretty math and plain text.
 // Class III embeds MakeGraphPage(); Class IV is a native panel driving the CAS
 // (Expr/Cas). The numeric logic lives in CalcLogic + Expr + Cas (superwin_core).
@@ -21,9 +24,11 @@
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Text.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
+#include <winrt/Microsoft.UI.Xaml.Documents.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 
 #include "app/Ui.h"
@@ -46,6 +51,40 @@ constexpr double kE = 2.71828182845904523536;
 // the calculator: a fixed width and a fixed-height keypad whose rows star-stretch.
 constexpr double kDeviceWidth = 384;
 constexpr double kKeypadHeight = 392;
+
+// ---- the device skin -------------------------------------------------------
+// Explicit colours (not theme brushes) so Class I & II look like a real object
+// in both app themes: a graphite TI-30Xa-style body with a pale-green LCD, dark
+// digit keys, light function keys, gold constants and a pink TI-30XIIS-style
+// operator column.
+inline winrt::Windows::UI::Color Rgb(uint8_t r, uint8_t g, uint8_t b) {
+    return winrt::Windows::UI::Color{0xFF, r, g, b};
+}
+const winrt::Windows::UI::Color kBodyBg   = Rgb(0x33, 0x36, 0x3C);  // graphite body
+const winrt::Windows::UI::Color kBodyEdge = Rgb(0x1C, 0x1E, 0x22);
+const winrt::Windows::UI::Color kLcdBg    = Rgb(0xC9, 0xD6, 0xBC);  // pale-green LCD
+const winrt::Windows::UI::Color kLcdInk   = Rgb(0x17, 0x1D, 0x14);  // LCD segments
+const winrt::Windows::UI::Color kLcdDim   = Rgb(0x44, 0x52, 0x40);  // echo/annunciator
+const winrt::Windows::UI::Color kKeyDigit = Rgb(0x24, 0x26, 0x2A);  // near-black digits
+const winrt::Windows::UI::Color kKeyFn    = Rgb(0xDB, 0xDD, 0xE0);  // light-grey functions
+const winrt::Windows::UI::Color kKeyConst = Rgb(0xE6, 0xD5, 0x9A);  // gold π / e
+const winrt::Windows::UI::Color kKeyOp    = Rgb(0xD7, 0x4F, 0x9F);  // pink operators
+const winrt::Windows::UI::Color kKeyEq    = Rgb(0xF0, 0x72, 0xBC);  // brighter pink =
+const winrt::Windows::UI::Color kKeyClear = Rgb(0xC2, 0x44, 0x35);  // red C
+const winrt::Windows::UI::Color kKeyWarm  = Rgb(0xDE, 0x82, 0x26);  // orange ⌫ / Ans
+const winrt::Windows::UI::Color kInkLight = Rgb(0xFF, 0xFF, 0xFF);
+const winrt::Windows::UI::Color kInkDark  = Rgb(0x1E, 0x1F, 0x22);
+
+winrt::Windows::UI::Color Mix(winrt::Windows::UI::Color c, winrt::Windows::UI::Color to, double t) {
+    auto ch = [t](uint8_t a, uint8_t b) {
+        return static_cast<uint8_t>(a + (static_cast<int>(b) - a) * t + 0.5);
+    };
+    return winrt::Windows::UI::Color{0xFF, ch(c.R, to.R), ch(c.G, to.G), ch(c.B, to.B)};
+}
+
+winrt::Microsoft::UI::Xaml::Media::SolidColorBrush Solid(winrt::Windows::UI::Color c) {
+    return winrt::Microsoft::UI::Xaml::Media::SolidColorBrush(c);
+}
 
 // Narrow an ASCII-only wide string (used for function names like L"sin").
 std::string NarrowAscii(const std::wstring& w) {
@@ -102,6 +141,10 @@ public:
     explicit CalcPanel(CalcSpec spec) : spec_(spec) { Build(); }
     winrt::UIElement Root() { return root_; }
 
+    // Pause the caret blink while the page is hidden (no work when not visible).
+    void OnShown() { if (caretTimer_) caretTimer_.Start(); }
+    void OnHidden() { if (caretTimer_) caretTimer_.Stop(); }
+
 private:
     enum class Mode { Cursor, Immediate };
 
@@ -149,18 +192,20 @@ private:
             fontCheck_.Unchecked(onToggle);
             opts.Children().Append(fontCheck_);
         }
-        // --- display: a status line (DEG/RAD indicator left, history echo right)
-        // over one big right-aligned main line, like a real two-line TI display.
+        // --- display: a status line (DEG/RAD annunciator left, history echo right)
+        // over one big right-aligned main line, on a pale-green LCD like the real
+        // TI two-line displays.
         indText_ = ui::Text(L"", 11.5);
         indText_.VerticalAlignment(winrt::VerticalAlignment::Center);
-        if (auto b = ui::ThemeBrush(L"TextFillColorTertiaryBrush")) indText_.Foreground(b);
+        indText_.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
+        indText_.Foreground(Solid(kLcdDim));
         exprText_ = ui::Text(L"", 14);
         exprText_.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         exprText_.TextAlignment(winrt::TextAlignment::Right);
         exprText_.TextWrapping(winrt::TextWrapping::NoWrap);
         exprText_.TextTrimming(winrt::TextTrimming::CharacterEllipsis);
         exprText_.VerticalAlignment(winrt::VerticalAlignment::Center);
-        if (auto b = ui::ThemeBrush(L"TextFillColorSecondaryBrush")) exprText_.Foreground(b);
+        exprText_.Foreground(Solid(kLcdDim));
         auto statusRow = winrt::Grid();
         {
             auto c0 = winrt::ColumnDefinition();
@@ -174,12 +219,20 @@ private:
         winrt::Grid::SetColumn(exprText_, 1);
         statusRow.Children().Append(indText_);
         statusRow.Children().Append(exprText_);
-        mainText_ = ui::Text(L"0", 40, true);
+        // The main line is two Runs -- the value and a block caret -- so the caret
+        // can blink (by toggling its Foreground) without the text shifting.
+        mainText_ = ui::Text(L"", 40, true);
         mainText_.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         mainText_.TextAlignment(winrt::TextAlignment::Right);
         mainText_.TextWrapping(winrt::TextWrapping::NoWrap);
         mainText_.TextTrimming(winrt::TextTrimming::CharacterEllipsis);
         mainText_.VerticalAlignment(winrt::VerticalAlignment::Bottom);
+        mainText_.Foreground(Solid(kLcdInk));
+        mainRun_ = winrt::Microsoft::UI::Xaml::Documents::Run();
+        caretRun_ = winrt::Microsoft::UI::Xaml::Documents::Run();
+        caretRun_.Foreground(Solid(kLcdInk));
+        mainText_.Inlines().Append(mainRun_);
+        mainText_.Inlines().Append(caretRun_);
         auto disp = winrt::Grid();
         {
             auto r0 = winrt::RowDefinition();
@@ -195,7 +248,10 @@ private:
         disp.Children().Append(mainText_);
         auto dispCard = ui::Card(disp, 16);
         dispCard.Height(112);
-        if (auto bg = ui::ThemeBrush(L"LayerFillColorDefaultBrush")) dispCard.Background(bg);
+        dispCard.Background(Solid(kLcdBg));
+        dispCard.BorderBrush(Solid(Mix(kLcdBg, kBodyEdge, 0.55)));
+        dispCard.BorderThickness(winrt::Thickness{2, 2, 2, 2});
+        dispCard.CornerRadius(winrt::CornerRadius{10, 10, 10, 10});
         ApplyFonts();
 
         // --- keypad: a fixed-height grid so every class is the SAME visual size.
@@ -207,19 +263,33 @@ private:
         kpad_.RowSpacing(0);
         FillKeypad();
 
-        // The "device": display + keypad framed together at a fixed width.
+        // The "device": display + keypad framed together at a fixed width, on a
+        // graphite body so it reads as a physical calculator on the page.
         auto deviceCol = ui::VStack(10);
         deviceCol.Children().Append(dispCard);
         deviceCol.Children().Append(kpad_);
         auto device = ui::Card(deviceCol, 14);
         device.Width(kDeviceWidth);
         device.HorizontalAlignment(winrt::HorizontalAlignment::Left);
+        device.Background(Solid(kBodyBg));
+        device.BorderBrush(Solid(kBodyEdge));
+        device.BorderThickness(winrt::Thickness{1, 1, 1, 1});
+        device.CornerRadius(winrt::CornerRadius{18, 18, 18, 18});
 
         auto page = ui::VStack(12);
         page.HorizontalAlignment(winrt::HorizontalAlignment::Left);
         if (opts.Children().Size() > 0) page.Children().Append(opts);
         page.Children().Append(device);
         root_ = page;
+
+        // Blinking entry caret for Cursor mode (the TI-30XIIS block cursor).
+        caretTimer_ = winrt::DispatcherTimer();
+        caretTimer_.Interval(std::chrono::milliseconds(530));
+        caretTimer_.Tick([this](winrt::IInspectable const&, winrt::IInspectable const&) {
+            caretOn_ = !caretOn_;
+            caretRun_.Foreground(caretOn_ ? Solid(kLcdInk) : Solid(kLcdBg));
+        });
+        caretTimer_.Start();
         Refresh();
     }
 
@@ -336,48 +406,70 @@ private:
         btn.MinHeight(0);  // star rows size the keys; no floor so Class II stays compact
         btn.Padding(winrt::Thickness{0, 0, 0, 0});
         btn.Margin(winrt::Thickness{3, 3, 3, 3});
-        btn.CornerRadius(winrt::CornerRadius{8, 8, 8, 8});
-        // Role styling so the pad reads like a real device at a glance: big bold
-        // digits, accent-coloured operators, a red C, and a recessed (tinted)
-        // function zone above the digit pad.
+        btn.CornerRadius(winrt::CornerRadius{12, 12, 12, 12});
+        btn.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
+
+        // Role palette (TI-style): near-black digits, light-grey functions, gold
+        // constants, pink operators, a brighter-pink =, a red C.
+        winrt::Windows::UI::Color bg = kKeyFn, fg = kInkDark;
         double fs = 15;
         switch (k.kind) {
             case KKind::Digit:
             case KKind::Dot:
             case KKind::Negate:
-                fs = 18;
-                btn.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
+                bg = kKeyDigit; fg = kInkLight; fs = 18;
                 break;
             case KKind::Op:
-            case KKind::Pow:
-                fs = 19;
-                if (auto b = ui::ThemeBrush(L"AccentTextFillColorPrimaryBrush")) btn.Foreground(b);
+                bg = kKeyOp; fg = kInkLight; fs = 19;
                 break;
             case KKind::Equals:
-                fs = 20;
+                bg = kKeyEq; fg = kInkLight; fs = 20;
                 break;
             case KKind::Clear:
-                if (auto b = ui::ThemeBrush(L"SystemFillColorCriticalBrush")) btn.Foreground(b);
+                bg = kKeyClear; fg = kInkLight;
+                break;
+            case KKind::Back:
+            case KKind::Ans:
+                bg = kKeyWarm; fg = kInkLight;
+                break;
+            case KKind::Const:
+                bg = kKeyConst; fs = spec_.scientific ? 14 : 15;
                 break;
             case KKind::Func:
-            case KKind::Const:
+            case KKind::Pow:  // xⁿ lives in the function zone, so it dresses like one
             case KKind::Sqr:
             case KKind::Fact:
             case KKind::Paren:
             case KKind::Percent:
                 fs = spec_.scientific ? 13.5 : 15;
-                if (auto b = ui::ThemeBrush(L"ControlFillColorTertiaryBrush")) btn.Background(b);
                 break;
             default:
-                break;
+                break;  // CE keeps the light function-key look
         }
         btn.FontSize(fs);
-        if (k.accent) {
-            if (auto st = winrt::Application::Current().Resources()
-                              .TryLookup(winrt::box_value(winrt::hstring(L"AccentButtonStyle")))
-                              .try_as<winrt::Style>())
-                btn.Style(st);
-        }
+
+        // Override the button's own theme resources (rest/hover/pressed) so the
+        // key keeps its colour through pointer states instead of snapping back to
+        // the theme grey.
+        auto res = btn.Resources();
+        auto put = [&res](const wchar_t* key, winrt::Windows::UI::Color c) {
+            res.Insert(winrt::box_value(winrt::hstring(key)), Solid(c));
+        };
+        const bool dark = (k.kind == KKind::Digit || k.kind == KKind::Dot ||
+                           k.kind == KKind::Negate || k.kind == KKind::Op ||
+                           k.kind == KKind::Equals || k.kind == KKind::Clear ||
+                           k.kind == KKind::Back || k.kind == KKind::Ans);
+        const auto white = Rgb(0xFF, 0xFF, 0xFF), black = Rgb(0x00, 0x00, 0x00);
+        put(L"ButtonBackground", bg);
+        put(L"ButtonBackgroundPointerOver", Mix(bg, white, dark ? 0.14 : 0.45));
+        put(L"ButtonBackgroundPressed", Mix(bg, black, 0.18));
+        put(L"ButtonForeground", fg);
+        put(L"ButtonForegroundPointerOver", fg);
+        put(L"ButtonForegroundPressed", Mix(fg, bg, 0.25));
+        put(L"ButtonBorderBrush", Mix(bg, black, 0.30));
+        put(L"ButtonBorderBrushPointerOver", Mix(bg, black, 0.30));
+        put(L"ButtonBorderBrushPressed", Mix(bg, black, 0.45));
+
         btn.Click([this, k](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { Dispatch(k); });
         return btn;
     }
@@ -487,6 +579,15 @@ private:
         }
     }
 
+    // Set the big line. `caret` shows the blinking TI-30XIIS block cursor after
+    // the text (Cursor-mode entry only); a fresh keypress always lands with the
+    // caret solid so typing feels immediate.
+    void SetMain(const std::wstring& text, bool caret) {
+        mainRun_.Text(winrt::hstring(text));
+        caretRun_.Text(caret ? L"\x258C" : L"");  // ▌
+        if (caret) { caretOn_ = true; caretRun_.Foreground(Solid(kLcdInk)); }
+    }
+
     void Refresh() {
         // Display indicator, like the real device's mode annunciator.
         indText_.Text(spec_.scientific
@@ -494,29 +595,29 @@ private:
                           : winrt::hstring(L""));
         // Non-Cursor (TI-30Xa): immediate execution -- a single value display that
         // clears and shows each new entry/result, with the pending operation (the
-        // "previous" context, e.g. "8 ×") shown small on the line above.
+        // "previous" context, e.g. "8 ×") shown small on the line above. No caret.
         if (immediate()) {
             exprText_.Text(winrt::hstring(Widen(imm_.Echo())));
-            mainText_.Text(winrt::hstring(Widen(imm_.Display())));
+            SetMain(Widen(imm_.Display()), false);
             return;
         }
         // Cursor (TI-30XIIS / EOS): you see the WHOLE expression as you type it in
-        // the main line; pressing = evaluates and lifts it to the small echo line
-        // with the result shown big below -- there is no live-result preview.
+        // the main line, with a blinking block cursor at the end; pressing =
+        // evaluates and lifts it to the small echo line with the result shown big
+        // below -- there is no live-result preview.
         if (errorFlash_) {
             exprText_.Text(winrt::hstring(prettyFont_ ? Beautify(expr_) : expr_));
-            mainText_.Text(L"Error");
+            SetMain(L"Error", false);
             errorFlash_ = false;
             return;
         }
         if (justEvaluated_) {
             exprText_.Text(winrt::hstring(evalEcho_));
-            mainText_.Text(winrt::hstring(expr_));  // the result of '='
+            SetMain(expr_, false);  // the result of '='
             return;
         }
         exprText_.Text(L"");
-        mainText_.Text(winrt::hstring(expr_.empty() ? std::wstring(L"0")
-                                                    : (prettyFont_ ? Beautify(expr_) : expr_)));
+        SetMain(prettyFont_ ? Beautify(expr_) : expr_, true);  // empty entry = caret alone
     }
 
     static std::string NarrowUtf8(const std::wstring& w) { return WideToUtf8(w); }
@@ -538,6 +639,10 @@ private:
     winrt::TextBlock indText_{nullptr};
     winrt::TextBlock exprText_{nullptr};
     winrt::TextBlock mainText_{nullptr};
+    winrt::Microsoft::UI::Xaml::Documents::Run mainRun_{nullptr};
+    winrt::Microsoft::UI::Xaml::Documents::Run caretRun_{nullptr};
+    winrt::DispatcherTimer caretTimer_{nullptr};
+    bool caretOn_ = true;
     winrt::ComboBox modeBox_{nullptr};
     winrt::ComboBox angleBox_{nullptr};
     winrt::CheckBox fontCheck_{nullptr};
@@ -548,8 +653,16 @@ class CalcPage : public IModulePage {
 public:
     CalcPage() { Build(); }
     winrt::UIElement Root() override { return root_; }
-    void OnShown() override { if (graph_) graph_->OnShown(); if (casGraph_) casGraph_->OnShown(); }
-    void OnHidden() override { if (graph_) graph_->OnHidden(); if (casGraph_) casGraph_->OnHidden(); }
+    void OnShown() override {
+        for (auto& p : panels_) p->OnShown();
+        if (graph_) graph_->OnShown();
+        if (casGraph_) casGraph_->OnShown();
+    }
+    void OnHidden() override {
+        for (auto& p : panels_) p->OnHidden();
+        if (graph_) graph_->OnHidden();
+        if (casGraph_) casGraph_->OnHidden();
+    }
 
 private:
     void Build() {

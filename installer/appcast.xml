@@ -28,6 +28,29 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.5.3</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.5.3</h2>
+        <ul>
+          <li><b>The calculators look like real TIs now.</b> Class I &amp; II are skinned as a
+              physical device: a graphite body, a pale-green LCD with dark segments and a DEG/RAD
+              annunciator, near-black digit keys, light-grey function keys, gold π/e, a pink
+              TI-30XIIS-style operator column with a brighter-pink =, and a red C — with proper
+              hover/press shading on every key.</li>
+          <li><b>Blinking entry cursor</b> in Cursor mode: a real TI-30XIIS block caret sits at the
+              end of the expression as you type (and pauses when the page is hidden).</li>
+        </ul>
+      ]]></description>
+      <pubDate>Tue, 09 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.5.3/SuperWin_v2.5.3_portable.zip"
+        sparkle:version="2.5.3"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.5.2</title>
       <description><![CDATA[
         <h2>SuperWin 2.5.2</h2>

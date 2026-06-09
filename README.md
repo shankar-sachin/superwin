@@ -1,4 +1,4 @@
-# SuperWin v2.5.2
+# SuperWin v2.5.3
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
@@ -22,11 +22,11 @@ updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.2/SuperWin_v2.5.2.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.3/SuperWin_v2.5.3.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.5.2.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.5.3.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -119,6 +119,12 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
+- **2.5.3** — **The calculators look like real TIs now.** Class I & II are skinned as a
+  physical device: a **graphite body**, a **pale-green LCD** (dark segments, DEG/RAD
+  annunciator), **near-black digit keys**, **light-grey function keys**, **gold π/e**, a
+  **pink TI-30XIIS-style operator column** with a brighter-pink `=`, and a **red C** — with
+  proper hover/press shading on every key. Cursor mode gains a **blinking TI-30XIIS block
+  caret** at the end of the expression as you type (it pauses while the page is hidden).
 - **2.5.2** — **Calculator, redesigned.** Class I & II now read like real devices: a true
   **two-line TI display** (a **DEG/RAD** annunciator and history echo above one big result line),
   **big bold digit keys**, **accent-coloured operators**, a **red C**, and a recessed function
