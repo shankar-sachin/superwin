@@ -11,8 +11,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,6 +33,9 @@
 
 #include "app/Ui.h"
 #include "core/Strings.h"
+#include "modules/calc/CalcLogic.h"
+#include "modules/graph/Cas.h"
+#include "modules/graph/Expr.h"
 #include "modules/graph/GraphLogic.h"
 #include "modules/graph/Latex.h"
 
@@ -89,9 +94,139 @@ struct PlotItem {
     bool visible = true;
 };
 
+// A compact symbolic-algebra console, shown only in the Class IV CAS calculator.
+// Type an expression in x and Simplify it, take d/dx, ∫dx, Solve f(x)=0, or
+// evaluate at a point -- driven by the Expr/Cas engine in this module.
+class CasPanel {
+public:
+    CasPanel() { Build(); }
+    winrt::UIElement Root() { return root_; }
+
+private:
+    void Build() {
+        auto col = ui::VStack(10);
+
+        input_ = winrt::TextBox();
+        input_.PlaceholderText(winrt::hstring(L"f(x)   e.g.   x^2 - 4    sin(x)    d/dx(x^3)    (x+1)(x-2)"));
+        input_.FontSize(17);
+        input_.FontFamily(winrt::Media::FontFamily(L"Consolas"));
+        input_.AcceptsReturn(false);
+        auto inCol = ui::VStack(6);
+        inCol.Children().Append(ui::Caption(L"CAS \x2014 expression in x"));
+        inCol.Children().Append(input_);
+        col.Children().Append(inCol);
+
+        auto actions = ui::HStack(8);
+        actions.Children().Append(ActionButton(L"Simplify", [this] { DoSimplify(); }));
+        actions.Children().Append(ActionButton(L"d/dx", [this] { DoDeriv(); }));
+        actions.Children().Append(ActionButton(L"\x222B dx", [this] { DoIntegral(); }));
+        actions.Children().Append(ActionButton(L"Solve = 0", [this] { DoSolve(); }));
+        col.Children().Append(actions);
+
+        auto evalRow = ui::HStack(8);
+        evalRow.VerticalAlignment(winrt::VerticalAlignment::Center);
+        auto el = ui::Caption(L"Evaluate at x =");
+        el.VerticalAlignment(winrt::VerticalAlignment::Center);
+        evalX_ = winrt::TextBox();
+        evalX_.Width(120);
+        evalX_.PlaceholderText(winrt::hstring(L"0"));
+        evalRow.Children().Append(el);
+        evalRow.Children().Append(evalX_);
+        evalRow.Children().Append(ActionButton(L"Evaluate", [this] { DoEval(); }, false));
+        col.Children().Append(evalRow);
+
+        outText_ = ui::Text(L"", 20, true);
+        outText_.FontFamily(winrt::Media::FontFamily(L"Cambria Math"));
+        outText_.IsTextSelectionEnabled(true);
+        auto outCol = ui::VStack(6);
+        outCol.Children().Append(ui::Caption(L"Result"));
+        outCol.Children().Append(outText_);
+        col.Children().Append(outCol);
+
+        auto card = ui::Card(col, 16);
+        root_ = card;
+    }
+
+    winrt::Button ActionButton(winrt::hstring label, std::function<void()> fn, bool accent = true) {
+        winrt::Button b;
+        b.Content(winrt::box_value(label));
+        b.MinWidth(96);
+        b.MinHeight(38);
+        b.FontSize(15);
+        b.CornerRadius(winrt::CornerRadius{10, 10, 10, 10});
+        if (accent) {
+            if (auto st = winrt::Application::Current().Resources()
+                              .TryLookup(winrt::box_value(winrt::hstring(L"AccentButtonStyle")))
+                              .try_as<winrt::Style>())
+                b.Style(st);
+        }
+        b.Click([fn](winrt::IInspectable const&, winrt::RoutedEventArgs const&) { fn(); });
+        return b;
+    }
+
+    std::optional<Expr> Parse(std::string& err) {
+        const std::string in = WideToUtf8(std::wstring(input_.Text()));
+        if (in.find_first_not_of(" \t") == std::string::npos) { err = "enter an expression in x"; return std::nullopt; }
+        return ParseExpr(in, err);
+    }
+    void Show(const std::wstring& s) {
+        if (auto b = ui::ThemeBrush(L"TextFillColorPrimaryBrush")) outText_.Foreground(b);
+        outText_.Text(winrt::hstring(s));
+    }
+    void ShowError(const std::string& err) {
+        if (auto b = ui::ThemeBrush(L"SystemFillColorCriticalBrush")) outText_.Foreground(b);
+        outText_.Text(winrt::hstring(L"\x26A0  " + Utf8ToWide(err)));
+    }
+    void DoSimplify() {
+        std::string err; auto e = Parse(err);
+        if (!e) { ShowError(err); return; }
+        Show(Utf8ToWide(e->simplify().pretty()));
+    }
+    void DoDeriv() {
+        std::string err; auto e = Parse(err);
+        if (!e) { ShowError(err); return; }
+        Show(L"d/dx = " + Utf8ToWide(e->derivative().simplify().pretty()));
+    }
+    void DoIntegral() {
+        std::string err; auto e = Parse(err);
+        if (!e) { ShowError(err); return; }
+        auto i = e->integral();
+        if (i.valid()) Show(L"\x222B = " + Utf8ToWide(i.pretty()) + L" + C");
+        else Show(L"No elementary antiderivative \x2014 plot the numeric \x222B instead.");
+    }
+    void DoSolve() {
+        std::string err; auto e = Parse(err);
+        if (!e) { ShowError(err); return; }
+        auto roots = SolveRoots(*e);
+        if (roots.empty()) { Show(L"No real roots in [\x2212" L"100, 100]."); return; }
+        std::wstring s;
+        for (size_t i = 0; i < roots.size(); ++i) {
+            if (i) s += L",   ";
+            s += L"x = " + Utf8ToWide(FormatCalc(roots[i]));
+        }
+        Show(s);
+    }
+    void DoEval() {
+        std::string err; auto e = Parse(err);
+        if (!e) { ShowError(err); return; }
+        std::string xs = WideToUtf8(std::wstring(evalX_.Text()));
+        if (xs.find_first_not_of(" \t") == std::string::npos) xs = "0";
+        std::string xerr;
+        auto xv = EvaluateCalc(xs, AngleMode::Radians, xerr);
+        if (!xv) { Show(L"Enter a numeric x value."); return; }
+        const double y = e->eval(*xv);
+        Show(L"f(" + Utf8ToWide(FormatCalc(*xv)) + L") = " + Utf8ToWide(FormatCalc(y)));
+    }
+
+    winrt::UIElement root_{nullptr};
+    winrt::TextBox input_{nullptr};
+    winrt::TextBox evalX_{nullptr};
+    winrt::TextBlock outText_{nullptr};
+};
+
 class GraphPage : public IModulePage {
 public:
-    GraphPage() { Build(); }
+    explicit GraphPage(bool cas) : cas_(cas) { Build(); }
     winrt::Microsoft::UI::Xaml::UIElement Root() override { return root_; }
 
 private:
@@ -163,13 +298,21 @@ private:
         split.Children().Append(leftHost_);
         split.Children().Append(plotCard);
 
-        status_ = ui::Caption(L"Type math on the left \x2014 \x222B, \x03A3, \x03A0, fractions and more render live  \x2022  drag to pan, scroll to zoom");
+        status_ = ui::Caption(cas_
+            ? L"Type math on the left \x2014 \x222B, \x03A3, \x03A0, d/dx and fractions render live  \x2022  drag to pan, scroll to zoom  \x2022  use the CAS console below for symbolic algebra"
+            : L"Type math on the left \x2014 fractions, roots, powers and trig render live  \x2022  drag to pan, scroll to zoom");
 
         auto body = ui::VStack(12);
         body.Children().Append(split);
         body.Children().Append(status_);
 
-        root_ = ui::Page(L"Graphing Calculator", body);
+        // Class IV CAS adds a symbolic-algebra console under the plot.
+        if (cas_) {
+            casConsole_ = std::make_unique<CasPanel>();
+            body.Children().Append(casConsole_->Root());
+        }
+
+        root_ = ui::Page(cas_ ? L"CAS Graphing Calculator" : L"Graphing Calculator", body);
     }
 
     void SetupWebView() {
@@ -235,6 +378,8 @@ private:
         if (!webview_ || !webview_.CoreWebView2()) return;
         const bool dark = leftHost_ && leftHost_.ActualTheme() == winrt::ElementTheme::Dark;
         webview_.ExecuteScriptAsync(dark ? L"swSetTheme('dark')" : L"swSetTheme('light')");
+        // Class III is graphing-only: hide the symbolic (CAS) insert buttons.
+        webview_.ExecuteScriptAsync(cas_ ? L"swSetCas(true)" : L"swSetCas(false)");
     }
 
     winrt::Button OverlayButton(winrt::hstring glyph, std::function<void()> fn) {
@@ -418,13 +563,15 @@ private:
     double lastX_ = 0, lastY_ = 0;
     bool traceActive_ = false;
     double traceX_ = 0, traceY_ = 0;
+    bool cas_ = true;  // Class IV (CAS) vs Class III (graphing-only)
+    std::unique_ptr<CasPanel> casConsole_;
     winrt::Microsoft::UI::Xaml::UIElement root_{nullptr};
 };
 
 }  // namespace
 
-std::unique_ptr<IModulePage> MakeGraphPage() {
-    return std::make_unique<GraphPage>();
+std::unique_ptr<IModulePage> MakeGraphPage(bool cas) {
+    return std::make_unique<GraphPage>(cas);
 }
 
 }  // namespace superwin

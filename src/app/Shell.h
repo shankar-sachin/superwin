@@ -37,7 +37,7 @@ std::unique_ptr<IModulePage> MakePasswordPage();
 std::unique_ptr<IModulePage> MakeTextPage();
 std::unique_ptr<IModulePage> MakeJsonPage();
 std::unique_ptr<IModulePage> MakeGuidPage();
-std::unique_ptr<IModulePage> MakeGraphPage();
+std::unique_ptr<IModulePage> MakeGraphPage(bool cas = true);
 std::unique_ptr<IModulePage> MakeCalcPage();
 std::unique_ptr<IModulePage> MakePythonPage();
 std::unique_ptr<IModulePage> MakeFileConvertPage();

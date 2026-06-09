@@ -44,6 +44,7 @@ add_library(superwin_core STATIC
     src/modules/graph/GraphLogic.cpp
     src/modules/graph/Expr.cpp
     src/modules/graph/Latex.cpp
+    src/modules/graph/Cas.cpp
     src/modules/calc/CalcLogic.cpp
     src/modules/python/PythonRunLogic.cpp
     src/modules/fileconv/ImageConvertLogic.cpp
@@ -78,6 +79,7 @@ if (SUPERWIN_BUILD_TESTS)
         tests/GraphLogicTests.cpp
         tests/ExprTests.cpp
         tests/LatexTests.cpp
+        tests/CasTests.cpp
         tests/CalcLogicTests.cpp
         tests/PythonRunLogicTests.cpp
         tests/ImageConvertLogicTests.cpp

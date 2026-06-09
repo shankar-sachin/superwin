@@ -12,6 +12,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace superwin {
 
@@ -26,9 +27,10 @@ std::optional<double> EvaluateCalc(const std::string& expr, AngleMode angle, std
 // Returns "Error" for non-finite values.
 std::string FormatCalc(double v);
 
-// Immediate-execution calculator (no expression line). Mirrors a classic
-// scientific calculator: digits build the current entry, an operator commits any
-// pending operation against the running value, functions act on the shown value.
+// Immediate-execution calculator (no expression line). Mirrors a TI-30Xa: digits
+// build the current entry, functions act instantly on the shown value, and the
+// four operations plus power are resolved with full operator precedence (AOS) --
+// 3 + 4 * 2 = 11, 2 ^ 3 ^ 2 = 512 -- via a stack of pending operations.
 class ImmediateCalc {
 public:
     void Digit(int d);                                  // 0..9
@@ -48,13 +50,16 @@ public:
     std::string Display() const;                        // formatted current display
 
 private:
-    double display_ = 0;   // the value currently shown
-    double stored_ = 0;    // left operand of a pending operation
-    char   op_ = 0;        // pending operation (0 = none)
-    bool   typing_ = false;// the user is entering digits into `buf_`
+    struct Pending { double val; char op; };  // a deferred "val op _" operation
+    double display_ = 0;     // the value currently shown
+    bool   typing_ = false;  // the user is entering digits into `buf_`
     bool   error_ = false;
-    std::string buf_;      // digits being typed
-    void Commit();         // fold a pending op into `display_`
+    bool   lastWasOp_ = false;  // last key was an operator (so the next replaces it)
+    std::string buf_;        // digits being typed
+    std::vector<Pending> pending_;  // AOS operator stack (low precedence at bottom)
+    // Fold the stack down while the top operation binds at least as tightly as
+    // an incoming operator of precedence `newPrec` (right-assoc spares equal prec).
+    void Reduce(int newPrec, bool rightAssoc);
 };
 
 }  // namespace superwin

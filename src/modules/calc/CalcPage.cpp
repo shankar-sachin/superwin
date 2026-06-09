@@ -1,10 +1,16 @@
-// Calculator module: one page with four tabs -- Class I (basic), Class II
-// (scientific), Class III (advanced) and Class IV CAS (the graphing/CAS engine).
-// All four share the same sleek keypad look; a feature spec decides which keys and
-// modes each class exposes. Class I & II offer a "Non-Cursor" (TI-30Xa-style,
-// immediate execution) and a "Cursor" (TI-30XIIS-style, expression entry) mode,
-// and Class II can switch its display between SuperMathFont v2.1 pretty math and
-// plain one-line text. The evaluation logic lives in CalcLogic (superwin_core).
+// Calculator module: one page with four tabs mirroring the real TI calculator
+// tiers --
+//   * Class I   "4-function"  : basic arithmetic (TI-108).
+//   * Class II  "scientific"  : trig + inverse trig + hyperbolics, logs, powers,
+//                               roots, factorial (TI-30XS / TI-36X Pro tier).
+//   * Class III "graphing"    : the WebView2/MathLive + canvas plotter.
+//   * Class IV  "CAS"         : symbolic algebra (simplify, d/dx, ∫, solve).
+// Class I & II share the sleek keypad; a feature spec decides which keys and modes
+// each exposes, and both offer a "Non-Cursor" (TI-30Xa-style immediate AOS
+// execution) and a "Cursor" (TI-30XIIS-style EOS expression entry) mode. Class II
+// can switch its display between SuperMathFont v2.1 pretty math and plain text.
+// Class III embeds MakeGraphPage(); Class IV is a native panel driving the CAS
+// (Expr/Cas). The numeric logic lives in CalcLogic + Expr + Cas (superwin_core).
 #include <Windows.h>
 
 #include <algorithm>
@@ -34,6 +40,11 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kE = 2.71828182845904523536;
+
+// Every keypad class shares one device footprint so switching tabs doesn't resize
+// the calculator: a fixed width and a fixed-height keypad whose rows star-stretch.
+constexpr double kDeviceWidth = 384;
+constexpr double kKeypadHeight = 392;
 
 // Narrow an ASCII-only wide string (used for function names like L"sin").
 std::string NarrowAscii(const std::wstring& w) {
@@ -83,7 +94,8 @@ struct Key {
     bool accent = false;
 };
 
-// One calculator (Class I-III). Class IV embeds the graphing page instead.
+// One keypad calculator (Class I basic or Class II scientific). Class III embeds
+// the graphing page and Class IV the CAS panel instead.
 class CalcPanel {
 public:
     explicit CalcPanel(CalcSpec spec) : spec_(spec) { Build(); }
@@ -93,15 +105,13 @@ private:
     enum class Mode { Cursor, Immediate };
 
     void Build() {
-        auto col = ui::VStack(12);
-
         // --- options row (modes, angle, font) ---
         auto opts = ui::HStack(14);
         opts.VerticalAlignment(winrt::VerticalAlignment::Center);
         if (spec_.hasModes) {
             modeBox_ = winrt::ComboBox();
-            modeBox_.Items().Append(winrt::box_value(winrt::hstring(L"Cursor")));
-            modeBox_.Items().Append(winrt::box_value(winrt::hstring(L"Non-Cursor")));
+            modeBox_.Items().Append(winrt::box_value(winrt::hstring(L"Cursor (TI-30XIIS)")));
+            modeBox_.Items().Append(winrt::box_value(winrt::hstring(L"Non-Cursor (TI-30Xa)")));
             modeBox_.SelectedIndex(0);
             modeBox_.SelectionChanged([this](winrt::IInspectable const&, winrt::SelectionChangedEventArgs const&) {
                 mode_ = modeBox_.SelectedIndex() == 1 ? Mode::Immediate : Mode::Cursor;
@@ -136,32 +146,65 @@ private:
             fontCheck_.Unchecked(onToggle);
             opts.Children().Append(fontCheck_);
         }
-        if (opts.Children().Size() > 0) col.Children().Append(opts);
-
         // --- display ---
         exprText_ = ui::Text(L"", 16);
         exprText_.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         exprText_.TextAlignment(winrt::TextAlignment::Right);
         if (auto b = ui::ThemeBrush(L"TextFillColorSecondaryBrush")) exprText_.Foreground(b);
-        mainText_ = ui::Text(L"0", 34, true);
+        mainText_ = ui::Text(L"0", 36, true);
         mainText_.HorizontalAlignment(winrt::HorizontalAlignment::Right);
         mainText_.TextAlignment(winrt::TextAlignment::Right);
+        mainText_.TextTrimming(winrt::TextTrimming::CharacterEllipsis);
         auto disp = ui::VStack(2);
         disp.Children().Append(exprText_);
         disp.Children().Append(mainText_);
-        auto dispCard = ui::Card(disp, 18);
-        dispCard.MinHeight(96);
-        col.Children().Append(dispCard);
+        auto dispCard = ui::Card(disp, 16);
+        dispCard.Height(108);
+        if (auto bg = ui::ThemeBrush(L"LayerFillColorDefaultBrush")) dispCard.Background(bg);
         ApplyFonts();
 
-        // --- keypads ---
-        if (spec_.scientific) col.Children().Append(GridFromKeys(FunctionKeys()));
-        col.Children().Append(GridFromKeys(PadKeys()));
+        // --- keypad: a fixed-height grid so every class is the SAME visual size.
+        // Class I (few keys) gets big keys; Class II (many keys) gets compact keys,
+        // both filling the same device body via star-sized rows.
+        auto kpad = winrt::Grid();
+        kpad.Height(kKeypadHeight);
+        kpad.RowSpacing(0);
+        if (spec_.scientific) {
+            auto fnRows = FunctionKeys();
+            auto padRows = PadKeys();
+            auto rdF = winrt::RowDefinition();
+            rdF.Height(winrt::GridLengthHelper::FromValueAndType(static_cast<double>(fnRows.size()), winrt::GridUnitType::Star));
+            auto rdP = winrt::RowDefinition();
+            rdP.Height(winrt::GridLengthHelper::FromValueAndType(static_cast<double>(padRows.size()), winrt::GridUnitType::Star));
+            kpad.RowDefinitions().Append(rdF);
+            kpad.RowDefinitions().Append(rdP);
+            auto fnGrid = GridFromKeys(fnRows);
+            auto padGrid = GridFromKeys(padRows);
+            winrt::Grid::SetRow(fnGrid, 0);
+            winrt::Grid::SetRow(padGrid, 1);
+            kpad.Children().Append(fnGrid);
+            kpad.Children().Append(padGrid);
+        } else {
+            auto rd = winrt::RowDefinition();
+            rd.Height(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
+            kpad.RowDefinitions().Append(rd);
+            auto padGrid = GridFromKeys(PadKeys());
+            winrt::Grid::SetRow(padGrid, 0);
+            kpad.Children().Append(padGrid);
+        }
+
+        // The "device": display + keypad framed together at a fixed width.
+        auto deviceCol = ui::VStack(10);
+        deviceCol.Children().Append(dispCard);
+        deviceCol.Children().Append(kpad);
+        auto device = ui::Card(deviceCol, 14);
+        device.Width(kDeviceWidth);
+        device.HorizontalAlignment(winrt::HorizontalAlignment::Left);
 
         auto page = ui::VStack(12);
-        page.MaxWidth(560);
         page.HorizontalAlignment(winrt::HorizontalAlignment::Left);
-        page.Children().Append(col);
+        if (opts.Children().Size() > 0) page.Children().Append(opts);
+        page.Children().Append(device);
         root_ = page;
         Refresh();
     }
@@ -191,8 +234,9 @@ private:
     std::vector<std::vector<Key>> PadKeys() {
         std::vector<std::vector<Key>> rows;
         if (!spec_.scientific) {
-            // Class I gets parens/%/√ here since it has no function area.
-            rows.push_back({{L"%", KKind::Percent, L""}, {L"√", KKind::Func, L"sqrt"}, {L"(", KKind::Paren, L"("}, {L")", KKind::Paren, L")"}});
+            // Class I is a true 4-function: percent and square root only -- no
+            // parentheses or exponent, like a TI-108. Two wide keys fill the row.
+            rows.push_back({{L"%", KKind::Percent, L"", 2}, {L"√", KKind::Func, L"sqrt", 2}});
         }
         rows.push_back({{L"C", KKind::Clear, L"", 1, false}, {L"CE", KKind::Back, L""}, {L"⌫", KKind::Back, L""}, {L"÷", KKind::Op, L"/"}});
         rows.push_back({{L"7", KKind::Digit, L"7"}, {L"8", KKind::Digit, L"8"}, {L"9", KKind::Digit, L"9"}, {L"×", KKind::Op, L"*"}});
@@ -206,6 +250,7 @@ private:
         winrt::Grid g;
         g.ColumnSpacing(0);
         g.RowSpacing(0);
+        g.VerticalAlignment(winrt::VerticalAlignment::Stretch);
         size_t cols = 0;
         for (auto const& r : rows) cols = std::max(cols, r.size());
         for (size_t c = 0; c < cols; ++c) {
@@ -213,9 +258,10 @@ private:
             cd.Width(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
             g.ColumnDefinitions().Append(cd);
         }
+        // Star rows so the keys fill the fixed-height keypad area uniformly.
         for (size_t r = 0; r < rows.size(); ++r) {
             auto rd = winrt::RowDefinition();
-            rd.Height(winrt::GridLengthHelper::Auto());
+            rd.Height(winrt::GridLengthHelper::FromValueAndType(1, winrt::GridUnitType::Star));
             g.RowDefinitions().Append(rd);
         }
         for (size_t r = 0; r < rows.size(); ++r) {
@@ -239,7 +285,8 @@ private:
         btn.Content(winrt::box_value(k.label));
         btn.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
         btn.VerticalAlignment(winrt::VerticalAlignment::Stretch);
-        btn.MinHeight(48);
+        btn.MinHeight(0);  // star rows size the keys; no floor so Class II stays compact
+        btn.Padding(winrt::Thickness{0, 0, 0, 0});
         btn.Margin(winrt::Thickness{3, 3, 3, 3});
         btn.CornerRadius(winrt::CornerRadius{10, 10, 10, 10});
         btn.FontSize(16);
@@ -328,29 +375,47 @@ private:
         if (expr_.empty()) { expr_ = L"-"; return; }
         std::string err;
         auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err);
-        if (v) { expr_ = Widen(FormatCalc(-*v)); justEvaluated_ = true; }
+        if (v) { evalEcho_.clear(); expr_ = Widen(FormatCalc(-*v)); justEvaluated_ = true; }
     }
 
     void DoEquals() {
         if (immediate()) { imm_.Equals(); return; }
         std::string err;
         auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err);
-        if (v) { expr_ = Widen(FormatCalc(*v)); justEvaluated_ = true; }
-        else if (!expr_.empty()) { errorFlash_ = true; }
+        if (v) {
+            evalEcho_ = (prettyFont_ ? Beautify(expr_) : expr_) + L" =";
+            expr_ = Widen(FormatCalc(*v));
+            justEvaluated_ = true;
+        } else if (!expr_.empty()) {
+            errorFlash_ = true;
+        }
     }
 
     void Refresh() {
+        // Non-Cursor (TI-30Xa): immediate execution -- a single value display that
+        // clears and shows each new entry/result. No expression line.
         if (immediate()) {
             exprText_.Text(L"");
             mainText_.Text(winrt::hstring(Widen(imm_.Display())));
             return;
         }
-        exprText_.Text(winrt::hstring(prettyFont_ ? Beautify(expr_) : expr_));
-        if (errorFlash_) { mainText_.Text(L"Error"); errorFlash_ = false; return; }
-        if (expr_.empty()) { mainText_.Text(L"0"); return; }
-        std::string err;
-        auto v = EvaluateCalc(NarrowUtf8(expr_), angle_, err);
-        mainText_.Text(winrt::hstring(v ? Widen(FormatCalc(*v)) : std::wstring(L"")));
+        // Cursor (TI-30XIIS / EOS): you see the WHOLE expression as you type it in
+        // the main line; pressing = evaluates and lifts it to the small echo line
+        // with the result shown big below -- there is no live-result preview.
+        if (errorFlash_) {
+            exprText_.Text(winrt::hstring(prettyFont_ ? Beautify(expr_) : expr_));
+            mainText_.Text(L"Error");
+            errorFlash_ = false;
+            return;
+        }
+        if (justEvaluated_) {
+            exprText_.Text(winrt::hstring(evalEcho_));
+            mainText_.Text(winrt::hstring(expr_));  // the result of '='
+            return;
+        }
+        exprText_.Text(L"");
+        mainText_.Text(winrt::hstring(expr_.empty() ? std::wstring(L"0")
+                                                    : (prettyFont_ ? Beautify(expr_) : expr_)));
     }
 
     static std::string NarrowUtf8(const std::wstring& w) { return WideToUtf8(w); }
@@ -363,6 +428,7 @@ private:
     bool justEvaluated_ = false;
     bool errorFlash_ = false;
     std::wstring expr_;
+    std::wstring evalEcho_;  // cursor mode: the "<expr> =" echo shown after '='
     ImmediateCalc imm_;
 
     winrt::UIElement root_{nullptr};
@@ -378,8 +444,8 @@ class CalcPage : public IModulePage {
 public:
     CalcPage() { Build(); }
     winrt::UIElement Root() override { return root_; }
-    void OnShown() override { if (graph_) graph_->OnShown(); }
-    void OnHidden() override { if (graph_) graph_->OnHidden(); }
+    void OnShown() override { if (graph_) graph_->OnShown(); if (casGraph_) casGraph_->OnShown(); }
+    void OnHidden() override { if (graph_) graph_->OnHidden(); if (casGraph_) casGraph_->OnHidden(); }
 
 private:
     void Build() {
@@ -389,16 +455,24 @@ private:
         tabs_.CanReorderTabs(false);
         tabs_.CanDragTabs(false);
 
+        // Class I: 4-function basic. Class II: full scientific (advanced=true).
         AddTab(L"Class I", CalcSpec{1, false, false, true, false});
-        AddTab(L"Class II", CalcSpec{2, true, false, true, true});
-        AddTab(L"Class III", CalcSpec{3, true, true, false, false});
+        AddTab(L"Class II", CalcSpec{2, true, true, true, true});
 
-        // Class IV CAS: the graphing/CAS engine.
-        graph_ = MakeGraphPage();
+        // Class III: graphing calculator with no CAS (symbolic features hidden).
+        graph_ = MakeGraphPage(/*cas=*/false);
+        auto t3 = winrt::TabViewItem();
+        t3.Header(winrt::box_value(winrt::hstring(L"Class III")));
+        t3.IsClosable(false);
+        t3.Content(graph_->Root());
+        tabs_.TabItems().Append(t3);
+
+        // Class IV: the full CAS graphing calculator (plot + symbolic console).
+        casGraph_ = MakeGraphPage(/*cas=*/true);
         auto t4 = winrt::TabViewItem();
         t4.Header(winrt::box_value(winrt::hstring(L"Class IV CAS")));
         t4.IsClosable(false);
-        t4.Content(graph_->Root());
+        t4.Content(casGraph_->Root());
         tabs_.TabItems().Append(t4);
 
         tabs_.SelectedIndex(0);
@@ -418,7 +492,8 @@ private:
     winrt::UIElement root_{nullptr};
     winrt::TabView tabs_{nullptr};
     std::vector<std::unique_ptr<CalcPanel>> panels_;
-    std::unique_ptr<IModulePage> graph_;
+    std::unique_ptr<IModulePage> graph_;      // Class III (graphing only)
+    std::unique_ptr<IModulePage> casGraph_;   // Class IV (graphing + CAS)
 };
 
 }  // namespace

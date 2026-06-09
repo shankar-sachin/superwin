@@ -1,4 +1,4 @@
-# SuperWin v2.5.0
+# SuperWin v2.5.1
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
@@ -22,11 +22,11 @@ updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.0/SuperWin_v2.5.0.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.1/SuperWin_v2.5.1.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.5.0.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.5.1.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -76,19 +76,24 @@ update. It then downloads a portable build into your user folder, swaps the file
 - **JSON Formatter** — pretty-print, minify, and validate JSON (with parse-error messages).
 - **GUID Generator** — random version-4 GUIDs, single or in bulk, with uppercase / hyphen /
   brace options.
-- **Calculator** — a unified calculator with **four tabs**: **Class I** (basic), **Class II**
-  (scientific), **Class III** (advanced: fractions, bases, constants) and **Class IV CAS**.
-  Class I &amp; II offer **Non-Cursor** (TI-30Xa-style immediate execution) and **Cursor**
-  (TI-30XIIS-style expression entry) modes; Class II can switch between **SuperMathFont v2.1**
-  pretty 2D math (TI-30XS MultiView-style) and plain one-line text. **Class IV CAS** is the full
-  graphing/CAS engine (below).
+- **Calculator** — a unified calculator with **four tabs** mirroring the real TI tiers:
+  **Class I** (4-function basic, TI-108), **Class II** (full scientific — trig + inverse trig +
+  hyperbolics, logs, powers, roots, factorial; TI-30XS / TI-36X Pro tier), **Class III**
+  (a graphing calculator **without** CAS — plots only, TI-84 tier) and **Class IV CAS** (the
+  **full CAS graphing calculator** — the same plotter **plus** symbolic algebra, TI-Nspire CX
+  CAS tier). Class I &amp; II share one fixed-size device body and offer **Non-Cursor**
+  (TI-30Xa — immediate execution: the display clears and shows each new entry/result, with true
+  **AOS** operator precedence) and **Cursor** (TI-30XIIS — you see the whole expression as you
+  type, then press `=`) modes; Class II can switch between **SuperMathFont v2.1** pretty 2D math
+  (TI-30XS MultiView-style) and plain one-line text. **Class IV CAS** adds a console to
+  **Simplify**, take **d/dx**, **∫ dx**, **Solve f(x)=0** (numeric roots), or evaluate at a point.
 - **Python IDE** — a code editor with **Python syntax highlighting** (Dev) and one-click **Run**
   through your installed Python interpreter, streaming program output. *(Editing works without
   Python; running needs Python on your PATH.)*
 - **File Converter** — convert **images** between PNG / JPG / BMP / GIF / TIFF / WEBP / HEIC / ICO
   (built-in Windows Imaging), and **DOCX ↔ PDF** when Microsoft Word is installed.
 - **Snake** 🐍 — the classic game on a sleek themed board (arrows / WASD, score, restart).
-- **Class IV CAS / Graphing** — a **TI-Nspire CX II CAS-style** plotter: an **editable LaTeX equation
+- **Class III Graphing** — a **TI-Nspire CX II-style** plotter: an **editable LaTeX equation
   list on the left** (MathLive in a WebView2) that renders **true typeset math as you type** — a
   tall **∫**, real **fraction** bars, **Σ / Π**, radicals and roman `sin`/`cos` — with the plot on
   the **right**. Integrals, **summations** `\sum`, **products** `\prod`, derivatives and fractions
@@ -114,6 +119,15 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
+- **2.5.1** — **Calculator re-tiered to match real TI classes.** **Class I** is now a true
+  **4-function** (TI-108); **Class II** a **full scientific** (trig + inverse trig + hyperbolics,
+  logs, powers, roots, factorial); **Class III** a **graphing calculator without CAS**; and
+  **Class IV** the **full CAS graphing calculator** (the same plotter plus a symbolic console:
+  **Simplify**, **d/dx**, **∫ dx**, **Solve f(x)=0**, evaluate-at-a-point). Class I & II now share
+  one fixed-size body so they're the same visual size, and **Cursor (TI-30XIIS)** shows the whole
+  expression as you type while **Non-Cursor (TI-30Xa)** is single-value immediate with true **AOS**
+  precedence (`3 + 4 × 2 = 11`, `2 ^ 3 ^ 2 = 512`); the keypad also accepts **implicit
+  multiplication** (`2π`, `2(3+1)`, `3sin(0)`).
 - **2.5.0** — **Unified Calculator** with four tabs (**Class I / II / III / IV CAS**): the same
   sleek calculator at four power levels, with **Non-Cursor** (TI-30Xa) and **Cursor** (TI-30XIIS)
   modes for Class I & II and a **SuperMathFont v2.1** ⇄ plain-text toggle. New **Python IDE** (Dev)

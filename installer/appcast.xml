@@ -24,6 +24,35 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.5.1</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.5.1</h2>
+        <ul>
+          <li><b>Calculator re-tiered to match real TI classes:</b> <b>Class I</b> is now a
+              true <b>4-function</b> (TI-108), <b>Class II</b> is a <b>full scientific</b>
+              (trig + inverse trig + hyperbolics, logs, powers, roots, factorial — TI-30XS /
+              TI-36X Pro tier), <b>Class III</b> is a <b>graphing calculator without CAS</b>, and
+              <b>Class IV</b> is the <b>full CAS graphing calculator</b> (plotter + symbolic console).</li>
+          <li><b>CAS console</b> (Class IV): type an expression in x and <b>Simplify</b>, take
+              <b>d/dx</b>, <b>∫ dx</b>, <b>Solve f(x)=0</b> (numeric roots), or evaluate at a point.</li>
+          <li><b>Authentic modes:</b> <b>Cursor</b> (TI-30XIIS) shows the whole expression as you
+              type; <b>Non-Cursor</b> (TI-30Xa) is single-value immediate with real <b>AOS</b>
+              precedence — <code>3 + 4 × 2 = 11</code>, <code>2 ^ 3 ^ 2 = 512</code>. Class I &amp; II
+              are now the same visual size.</li>
+          <li><b>Implicit multiplication</b> in the keypad evaluator: <code>2π</code>,
+              <code>2(3+1)</code>, <code>3sin(0)</code> all work.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Mon, 08 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.5.1/SuperWin_v2.5.1_portable.zip"
+        sparkle:version="2.5.1"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.5.0</title>
       <description><![CDATA[
         <h2>SuperWin 2.5.0</h2>

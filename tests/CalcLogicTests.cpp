@@ -28,6 +28,15 @@ TEST_CASE("EvaluateCalc arithmetic and precedence", "[calc]") {
     REQUIRE_THAT(E("5!"), WithinAbs(120.0, 1e-9));      // postfix factorial
 }
 
+TEST_CASE("EvaluateCalc implicit multiplication", "[calc]") {
+    REQUIRE_THAT(E("2pi"), WithinAbs(6.28318530718, 1e-9));     // 2*pi
+    REQUIRE_THAT(E("2(3+1)"), WithinAbs(8.0, 1e-12));           // 2*(3+1)
+    REQUIRE_THAT(E("(1+2)(3+4)"), WithinAbs(21.0, 1e-12));      // adjacent parens
+    REQUIRE_THAT(E("3sin(0)+1"), WithinAbs(1.0, 1e-12));        // 3*sin(0)+1
+    REQUIRE_THAT(E("2sqrt(9)"), WithinAbs(6.0, 1e-12));         // 2*sqrt(9)
+    REQUIRE_THAT(E("2pi^2"), WithinAbs(19.7392088022, 1e-7));   // 2*(pi^2), not (2pi)^2
+}
+
 TEST_CASE("EvaluateCalc functions and constants", "[calc]") {
     REQUIRE_THAT(E("sqrt(16)"), WithinAbs(4.0, 1e-12));
     REQUIRE_THAT(E("ln(e)"), WithinAbs(1.0, 1e-12));
@@ -69,6 +78,25 @@ TEST_CASE("ImmediateCalc immediate-execution chain", "[calc][immediate]") {
     REQUIRE(d.Display() == "11");
     d.Digit(2); d.Equals();                       // 11 + 2 = 13
     REQUIRE(d.Display() == "13");
+}
+
+TEST_CASE("ImmediateCalc honors operator precedence (AOS)", "[calc][immediate]") {
+    // TI-30Xa AOS: multiplication binds tighter than addition even in immediate mode.
+    ImmediateCalc a;
+    a.Digit(3); a.Op('+'); a.Digit(4); a.Op('*'); a.Digit(2); a.Equals();
+    REQUIRE(a.Display() == "11");  // 3 + (4*2)
+
+    ImmediateCalc b;
+    b.Digit(2); b.Op('+'); b.Digit(3); b.Op('*'); b.Digit(4); b.Op('-'); b.Digit(1); b.Equals();
+    REQUIRE(b.Display() == "13");  // 2 + 12 - 1
+
+    ImmediateCalc c;  // power is right-associative
+    c.Digit(2); c.Op('^'); c.Digit(3); c.Op('^'); c.Digit(2); c.Equals();
+    REQUIRE(c.Display() == "512");  // 2^(3^2)
+
+    ImmediateCalc d;  // pressing two operators in a row swaps, not double-applies
+    d.Digit(8); d.Op('+'); d.Op('*'); d.Digit(2); d.Equals();
+    REQUIRE(d.Display() == "16");  // 8 * 2
 }
 
 TEST_CASE("ImmediateCalc functions act on the shown value", "[calc][immediate]") {

@@ -117,7 +117,16 @@
 
   // ---- host -> page API (invoked via ExecuteScriptAsync) ----
   window.swAddRow = function () { makeRow(); };
-  window.swSetTheme = function (t) { document.body.className = (t === "light" ? "light" : "dark"); };
+  window.swSetTheme = function (t) {
+    // Preserve the cas/no-cas body class while switching light/dark.
+    var nocas = document.body.classList.contains("nocas");
+    document.body.className = (t === "light" ? "light" : "dark") + (nocas ? " nocas" : "");
+  };
+  // Class III (graphing-only) hides the symbolic CAS insert buttons (Σ Π ∫ d/dx);
+  // Class IV (CAS) shows them. Driven from the host via swSetCas(true/false).
+  window.swSetCas = function (on) {
+    document.body.classList.toggle("nocas", !on);
+  };
   window.swInit = function (json) {
     try {
       var arr = JSON.parse(json);

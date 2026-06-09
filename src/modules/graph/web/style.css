@@ -47,6 +47,8 @@ body {
   transition: background .12s ease;
 }
 #toolbar button:hover { background: var(--hover); }
+/* Class III graphing-only hides the symbolic (CAS) insert buttons. */
+body.nocas #toolbar button.cas { display: none; }
 
 #rows { display: flex; flex-direction: column; gap: 8px; }
 
