@@ -35,4 +35,15 @@ std::optional<std::string> PrettyExpr(const std::string& expr, std::string& erro
 // parse error.
 std::optional<double> DefiniteIntegral(const std::string& expr, double a, double b);
 
+// If the expression's value does not depend on x (3^2, pi^3, sum(n,1,10)),
+// its numeric value; nullopt for parse errors, x-dependent expressions, and
+// non-finite values.
+std::optional<double> ConstantValue(const std::string& expr);
+
+// The Desmos-style inline result shown next to an equation row: "= 9" when the
+// expression is a constant (any class); for CAS rows only, calculus notation
+// (d/dx, ∫, Σ, Π) that resolves symbolically shows the resolved expression,
+// e.g. "= 3x²". nullopt = no popup for this row.
+std::optional<std::string> RowResultText(const std::string& expr, bool cas);
+
 }  // namespace superwin

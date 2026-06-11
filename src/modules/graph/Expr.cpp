@@ -299,6 +299,29 @@ private:
     }
 };
 
+// Does the expression's value vary with x? (NumInt is F(x) = ∫₀ˣ, so it always
+// does; the bound Σ/Π index does not.) x-free expressions are "constant" even
+// when not folded to a literal, e.g. sum(n, 1, 10).
+bool DependsOnX(const NodeP& n) {
+    switch (n->kind) {
+        case Kind::Const:
+        case Kind::IndexVar: return false;
+        case Kind::Var:
+        case Kind::NumInt:   return true;
+        case Kind::Neg:
+        case Kind::Func:
+        case Kind::NumDeriv: return DependsOnX(n->a);
+        case Kind::Add:
+        case Kind::Sub:
+        case Kind::Mul:
+        case Kind::Div:
+        case Kind::Pow:      return DependsOnX(n->a) || DependsOnX(n->b);
+        case Kind::Sum:
+        case Kind::Prod:     return DependsOnX(n->a) || DependsOnX(n->b) || DependsOnX(n->c);
+    }
+    return true;
+}
+
 // `idx` carries the current summation/product index value (NaN outside a Σ/Π).
 double Eval(const NodeP& n, double x, double idx) {
     switch (n->kind) {
@@ -569,6 +592,7 @@ std::string Pretty(const NodeP& n, int threshold) {
 }  // namespace
 
 double Expr::eval(double x) const { return node_ ? Eval(node_, x, std::nan("")) : std::nan(""); }
+bool Expr::isConstant() const { return node_ && !DependsOnX(node_); }
 Expr Expr::derivative() const { return node_ ? Expr(Deriv(node_)) : Expr(); }
 Expr Expr::integral() const {
     if (!node_) return Expr();

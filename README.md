@@ -1,4 +1,4 @@
-# SuperWin v2.5.3
+# SuperWin v2.5.4
 
 A single-process Windows desktop **multi-tool** — a code-first **WinUI 3** (C++/WinRT)
 dashboard with a blended, custom title bar, a `NavigationView` shell, and one page per
@@ -22,11 +22,11 @@ updates.
 from the GitHub Releases page, or grab a specific build:
 
 - Latest: <https://github.com/shankar-sachin/superwin/releases/latest>
-- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.3/SuperWin_v2.5.3.exe>
+- This version: <https://github.com/shankar-sachin/superwin/releases/download/v2.5.4/SuperWin_v2.5.4.exe>
 
 Then:
 
-1. Run **`SuperWin_v2.5.3.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
+1. Run **`SuperWin_v2.5.4.exe`**. It's a **per-user** install — **no UAC / admin prompt**.
 2. In the wizard you can optionally **create a desktop shortcut** and **launch SuperWin at
    sign-in**.
 3. Launch it. The dashboard opens **maximized**; SuperWin also lives in the system tray and
@@ -84,8 +84,14 @@ update. It then downloads a portable build into your user folder, swaps the file
   CAS tier). Class I &amp; II share one fixed-size device body and offer **Non-Cursor**
   (TI-30Xa — immediate execution: the display clears and shows each new entry/result, with true
   **AOS** operator precedence) and **Cursor** (TI-30XIIS — you see the whole expression as you
-  type, then press `=`) modes; Class II can switch between **SuperMathFont v2.1** pretty 2D math
-  (TI-30XS MultiView-style) and plain one-line text. **Class IV CAS** adds a console to
+  type, then press `=`) modes; Class II carries a TI-style one-shot **[2nd] modifier key**
+  (sin→sin⁻¹, ln→eˣ, log→10ˣ, log₂→2ˣ, x²→x³, √→∛, !→%, π→e, abs→x⁻¹, with a **2ND**
+  annunciator on the LCD) and can switch between **SuperMathFont v2.1** pretty 2D math
+  (TI-30XS MultiView-style, with **true ³⁄₄ fractions** and superscript exponents) and plain
+  one-line text. The graphing classes show **Desmos-style inline answers**: a constant row
+  (`3^2`, `π³`) gets a **"= 9" pill** right in the equation list (and the plot auto-grows its
+  y-range so the line is visible); in Class IV, calculus rows (d/dx, ∫, Σ, Π) show the resolved
+  expression. **Class IV CAS** adds a console to
   **Simplify**, take **d/dx**, **∫ dx**, **Solve f(x)=0** (numeric roots), or evaluate at a point.
 - **Python IDE** — a code editor with **Python syntax highlighting** (Dev) and one-click **Run**
   through your installed Python interpreter, streaming program output. *(Editing works without
@@ -119,6 +125,15 @@ setting the picker hotkey by **physically pressing the keys** (see below).
 
 ## What's new
 
+- **2.5.4** — **Desmos-style inline answers** in the graphing calculator: a row with a numeric
+  value (`3^2`, `π³`, `2+√2`) shows a **"= 9" pill** right in the equation list, and the plot
+  **auto-grows its y-range** so the constant line actually appears instead of plotting
+  off-screen; Class IV CAS rows typed as calculus (**d/dx, ∫, Σ, Π**) show the symbolically
+  resolved expression. **Class II grows a real [2nd] key** (TI-30XS/XIIS-style, one-shot, with a
+  **2ND** annunciator): sin→sin⁻¹, cos→cos⁻¹, tan→tan⁻¹, sinh/cosh/tanh→their inverses, ln→eˣ,
+  log→10ˣ, log₂→2ˣ, x²→x³, √→∛, !→%, π→e, abs→x⁻¹. **SuperMathFont v2.1** now renders **true
+  fractions** (3/4 → ³⁄₄) plus multi-digit and negative superscript exponents. **Fixed:**
+  digit-suffixed functions (log₂/log10) never parsed in Cursor-mode expressions.
 - **2.5.3** — **The calculators look like real TIs now.** Class I & II are skinned as a
   physical device: a **graphite body**, a **pale-green LCD** (dark segments, DEG/RAD
   annunciator), **near-black digit keys**, **light-grey function keys**, **gold π/e**, a

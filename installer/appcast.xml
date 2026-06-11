@@ -28,6 +28,35 @@
     <language>en</language>
 
     <item>
+      <title>SuperWin 2.5.4</title>
+      <description><![CDATA[
+        <h2>SuperWin 2.5.4</h2>
+        <ul>
+          <li><b>Desmos-style inline answers</b> in the graphing calculator: type an expression with
+              a numeric value (3^2, π³, 2+√2) and a "= 9"-style pill appears right in the equation
+              row — and the plot auto-grows its y-range so the constant line is actually visible
+              instead of sitting off-screen. In Class IV CAS, calculus rows (d/dx, ∫, Σ, Π) show the
+              symbolically resolved expression in the pill.</li>
+          <li><b>Class II grows a real [2nd] key</b> (TI-30XS/XIIS-style, one-shot with a 2ND
+              annunciator): sin→sin⁻¹, cos→cos⁻¹, tan→tan⁻¹, sinh→sinh⁻¹ (and friends), ln→eˣ,
+              log→10ˣ, log₂→2ˣ, x²→x³, √→∛, !→%, π→e, abs→x⁻¹.</li>
+          <li><b>SuperMathFont v2.1 true fractions:</b> with the pretty font on, integer divisions
+              render as real fractions with a raised numerator and lowered denominator (3/4 → ³⁄₄),
+              plus smarter superscripts (multi-digit and negative exponents).</li>
+          <li><b>Fixed:</b> digit-suffixed functions (log₂, log10) never parsed in Cursor-mode
+              expressions.</li>
+        </ul>
+      ]]></description>
+      <pubDate>Thu, 11 Jun 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/shankar-sachin/superwin/releases/download/v2.5.4/SuperWin_v2.5.4_portable.zip"
+        sparkle:version="2.5.4"
+        sparkle:os="windows"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+    <item>
       <title>SuperWin 2.5.3</title>
       <description><![CDATA[
         <h2>SuperWin 2.5.3</h2>

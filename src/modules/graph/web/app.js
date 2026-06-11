@@ -85,6 +85,12 @@
     });
     mf.addEventListener("focusin", function () { activeMf = mf; });
 
+    // Desmos-style inline answer ("= 9", or the resolved CAS expression for
+    // d/dx / ∫ / Σ / Π rows). The host fills it via swSetResult after each edit.
+    var res = document.createElement("span");
+    res.className = "result";
+    res.title = "Result";
+
     var eye = document.createElement("button");
     eye.type = "button";
     eye.className = "icon";
@@ -110,6 +116,7 @@
 
     row.appendChild(color);
     row.appendChild(mf);
+    row.appendChild(res);
     row.appendChild(eye);
     row.appendChild(del);
     rowsEl().appendChild(row);
@@ -117,6 +124,15 @@
 
   // ---- host -> page API (invoked via ExecuteScriptAsync) ----
   window.swAddRow = function () { makeRow(); };
+  // Show (or clear, with "") the inline "= result" pill on row `id`.
+  window.swSetResult = function (id, text) {
+    var row = document.querySelector('.row[data-id="' + id + '"]');
+    if (!row) return;
+    var res = row.querySelector(".result");
+    if (!res) return;
+    res.textContent = text || "";
+    res.classList.toggle("show", !!text);
+  };
   window.swSetTheme = function (t) {
     // Preserve the cas/no-cas body class while switching light/dark.
     var nocas = document.body.classList.contains("nocas");

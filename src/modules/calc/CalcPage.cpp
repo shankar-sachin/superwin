@@ -12,7 +12,10 @@
 // caret) mode. Both are skinned as a physical device: graphite body, pale-green
 // LCD, and TI-style role-coloured keys (dark digits, light functions, gold
 // constants, pink operators, red C) -- see the palette near the top. Class II
-// can switch its display between SuperMathFont v2.1 pretty math and plain text.
+// carries a TI-style one-shot [2nd] modifier (sin->sin⁻¹, ln->eˣ, log->10ˣ,
+// √->∛, x²->x³, !->%, π->e, abs->x⁻¹, ...) and can switch its display between
+// SuperMathFont v2.1 pretty math (true ³⁄₄ fractions, superscript exponents)
+// and plain text.
 // Class III embeds MakeGraphPage(); Class IV is a native panel driving the CAS
 // (Expr/Cas). The numeric logic lives in CalcLogic + Expr + Cas (superwin_core).
 #include <Windows.h>
@@ -94,16 +97,72 @@ std::string NarrowAscii(const std::wstring& w) {
     return s;
 }
 
-// Beautify a plain infix string for the SuperMathFont display: ·, ÷, √, superscripts.
-std::wstring Beautify(const std::wstring& in) {
+constexpr const wchar_t* kSupDigits = L"⁰¹²³⁴⁵⁶⁷⁸⁹";
+constexpr const wchar_t* kSubDigits = L"₀₁₂₃₄₅₆₇₈₉";
+
+// SuperMathFont fractions: render integer/integer as a true fraction with a
+// raised numerator and lowered denominator (3/4 -> ³⁄₄, U+2044 fraction slash).
+// Only plain-integer operands qualify -- a neighbouring '.', '^', '!' or letter
+// means the '/' is not a simple numeric fraction (1/2^3, 3.5/2) and the display
+// must not regroup it.
+std::wstring BeautifyFractions(const std::wstring& in) {
+    auto digit = [](wchar_t c) { return c >= L'0' && c <= L'9'; };
+    auto inNumber = [&](wchar_t c) {
+        return digit(c) || c == L'.' || c == L'^' || c == L'!' ||
+               (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z');
+    };
     std::wstring out;
-    for (size_t i = 0; i < in.size(); ++i) {
-        const wchar_t c = in[i];
+    size_t i = 0;
+    while (i < in.size()) {
+        if (digit(in[i]) && (out.empty() || !inNumber(out.back()))) {
+            size_t j = i;
+            while (j < in.size() && digit(in[j])) ++j;
+            if (j < in.size() && in[j] == L'/' && j + 1 < in.size() && digit(in[j + 1])) {
+                size_t k = j + 1;
+                while (k < in.size() && digit(in[k])) ++k;
+                const wchar_t after = k < in.size() ? in[k] : L'\0';
+                if (after != L'.' && after != L'^' && after != L'!') {
+                    for (size_t p = i; p < j; ++p) out += kSupDigits[in[p] - L'0'];
+                    out += L'⁄';  // U+2044
+                    for (size_t p = j + 1; p < k; ++p) out += kSubDigits[in[p] - L'0'];
+                    i = k;
+                    continue;
+                }
+            }
+            out.append(in, i, j - i);
+            i = j;
+            continue;
+        }
+        out += in[i++];
+    }
+    return out;
+}
+
+// Beautify a plain infix string for the SuperMathFont display: ·, √, π, true
+// numeric fractions (³⁄₄) and superscript exponents (x², 5⁻¹, 2³⁴).
+std::wstring Beautify(const std::wstring& in) {
+    const std::wstring frac = BeautifyFractions(in);
+    std::wstring out;
+    for (size_t i = 0; i < frac.size(); ++i) {
+        const wchar_t c = frac[i];
         if (c == L'*') { out += L'·'; continue; }                 // ·
-        if (c == L'^' && i + 1 < in.size()) {
-            const wchar_t n = in[i + 1];
-            const wchar_t* sup = L"⁰¹²³⁴⁵⁶⁷⁸⁹";
-            if (n >= L'0' && n <= L'9') { out += sup[n - L'0']; ++i; continue; }
+        if (c == L'^' && i + 1 < frac.size()) {
+            size_t j = i + 1;
+            std::wstring sup;
+            bool neg = false;
+            if (frac[j] == L'-') { neg = true; ++j; }
+            while (j < frac.size() && frac[j] >= L'0' && frac[j] <= L'9') {
+                sup += kSupDigits[frac[j] - L'0'];
+                ++j;
+            }
+            // Whole-number exponents only: ^3.5 keeps the caret so the display
+            // can't read as 2³·5.
+            if (!sup.empty() && (j >= frac.size() || frac[j] != L'.')) {
+                if (neg) out += L'⁻';
+                out += sup;
+                i = j - 1;
+                continue;
+            }
         }
         out += c;
     }
@@ -125,13 +184,19 @@ struct CalcSpec {
     bool fontToggle = false;   // SuperMathFont v2.1 toggle (Class II)
 };
 
-enum class KKind { Digit, Dot, Op, Pow, Func, Const, Paren, Equals, Clear, ClearEntry, Back, Percent, Sqr, Fact, Negate, Ans, Empty };
+enum class KKind { Digit, Dot, Op, Pow, Func, Const, Paren, Equals, Clear, ClearEntry, Back, Percent, Sqr, Fact, Negate, Ans,
+                   Second, Cube, Inv, Exp10, Exp2, Empty };
 struct Key {
     std::wstring label;
     KKind kind = KKind::Empty;
     std::wstring payload;
     int span = 1;
     bool accent = false;
+    // The TI-style shifted function this key carries while [2nd] is latched
+    // (kind2 == Empty means the key has no second function).
+    std::wstring label2;
+    KKind kind2 = KKind::Empty;
+    std::wstring payload2;
 };
 
 // One keypad calculator (Class I basic or Class II scientific). Class III embeds
@@ -159,7 +224,7 @@ private:
             modeBox_.SelectedIndex(0);
             modeBox_.SelectionChanged([this](winrt::IInspectable const&, winrt::SelectionChangedEventArgs const&) {
                 mode_ = modeBox_.SelectedIndex() == 1 ? Mode::Immediate : Mode::Cursor;
-                expr_.clear(); imm_.ClearAll(); justEvaluated_ = false;
+                expr_.clear(); imm_.ClearAll(); justEvaluated_ = false; second_ = false;
                 FillKeypad();  // Cursor shows an Ans key where Non-Cursor has CE
                 Refresh();
             });
@@ -328,16 +393,33 @@ private:
     }
 
     // ---- key tables -------------------------------------------------------
+    // Class II carries a TI-30XS/XIIS-style [2nd] modifier: most function keys
+    // have a shifted second function (sin->sin⁻¹, ln->eˣ, √->∛, ...), shown by
+    // rebuilding the keypad with the shifted labels while 2nd is latched.
     std::vector<std::vector<Key>> FunctionKeys() {
         std::vector<std::vector<Key>> rows;
-        rows.push_back({{L"sin", KKind::Func, L"sin"}, {L"cos", KKind::Func, L"cos"}, {L"tan", KKind::Func, L"tan"}, {L"π", KKind::Const, L"pi"}});
-        rows.push_back({{L"ln", KKind::Func, L"ln"}, {L"log", KKind::Func, L"log"}, {L"√", KKind::Func, L"sqrt"}, {L"e", KKind::Const, L"e"}});
-        rows.push_back({{L"x²", KKind::Sqr, L""}, {L"xⁿ", KKind::Pow, L"^"}, {L"!", KKind::Fact, L""}, {L"%", KKind::Percent, L""}});
         if (spec_.advanced) {
-            rows.push_back({{L"asin", KKind::Func, L"asin"}, {L"acos", KKind::Func, L"acos"}, {L"atan", KKind::Func, L"atan"}, {L"eˣ", KKind::Func, L"exp"}});
-            rows.push_back({{L"sinh", KKind::Func, L"sinh"}, {L"cosh", KKind::Func, L"cosh"}, {L"tanh", KKind::Func, L"tanh"}, {L"log₂", KKind::Func, L"log2"}});
-            rows.push_back({{L"∛", KKind::Func, L"cbrt"}, {L"abs", KKind::Func, L"abs"}, {L"(", KKind::Paren, L"("}, {L")", KKind::Paren, L")"}});
+            rows.push_back({{L"2nd", KKind::Second, L""},
+                            {L"sin", KKind::Func, L"sin", 1, false, L"sin⁻¹", KKind::Func, L"asin"},
+                            {L"cos", KKind::Func, L"cos", 1, false, L"cos⁻¹", KKind::Func, L"acos"},
+                            {L"tan", KKind::Func, L"tan", 1, false, L"tan⁻¹", KKind::Func, L"atan"}});
+            rows.push_back({{L"sinh", KKind::Func, L"sinh", 1, false, L"sinh⁻¹", KKind::Func, L"asinh"},
+                            {L"cosh", KKind::Func, L"cosh", 1, false, L"cosh⁻¹", KKind::Func, L"acosh"},
+                            {L"tanh", KKind::Func, L"tanh", 1, false, L"tanh⁻¹", KKind::Func, L"atanh"},
+                            {L"π", KKind::Const, L"pi", 1, false, L"e", KKind::Const, L"e"}});
+            rows.push_back({{L"ln", KKind::Func, L"ln", 1, false, L"eˣ", KKind::Func, L"exp"},
+                            {L"log", KKind::Func, L"log", 1, false, L"10ˣ", KKind::Exp10, L""},
+                            {L"log₂", KKind::Func, L"log2", 1, false, L"2ˣ", KKind::Exp2, L""},
+                            {L"abs", KKind::Func, L"abs", 1, false, L"x⁻¹", KKind::Inv, L""}});
+            rows.push_back({{L"x²", KKind::Sqr, L"", 1, false, L"x³", KKind::Cube, L""},
+                            {L"√", KKind::Func, L"sqrt", 1, false, L"∛", KKind::Func, L"cbrt"},
+                            {L"xⁿ", KKind::Pow, L"^"},
+                            {L"!", KKind::Fact, L"", 1, false, L"%", KKind::Percent, L""}});
+            rows.push_back({{L"(", KKind::Paren, L"(", 2}, {L")", KKind::Paren, L")", 2}});
         } else {
+            rows.push_back({{L"sin", KKind::Func, L"sin"}, {L"cos", KKind::Func, L"cos"}, {L"tan", KKind::Func, L"tan"}, {L"π", KKind::Const, L"pi"}});
+            rows.push_back({{L"ln", KKind::Func, L"ln"}, {L"log", KKind::Func, L"log"}, {L"√", KKind::Func, L"sqrt"}, {L"e", KKind::Const, L"e"}});
+            rows.push_back({{L"x²", KKind::Sqr, L""}, {L"xⁿ", KKind::Pow, L"^"}, {L"!", KKind::Fact, L""}, {L"%", KKind::Percent, L""}});
             rows.push_back({{L"(", KKind::Paren, L"("}, {L")", KKind::Paren, L")"}, {L"eˣ", KKind::Func, L"exp"}, {L"±", KKind::Negate, L""}});
         }
         return rows;
@@ -399,6 +481,12 @@ private:
     }
 
     winrt::Button MakeKey(Key k) {
+        // While [2nd] is latched, a key with a second function becomes that key.
+        if (second_ && k.kind2 != KKind::Empty) {
+            k.label = k.label2;
+            k.kind = k.kind2;
+            k.payload = k.payload2;
+        }
         winrt::Button btn;
         btn.Content(winrt::box_value(k.label));
         btn.HorizontalAlignment(winrt::HorizontalAlignment::Stretch);
@@ -438,10 +526,19 @@ private:
             case KKind::Func:
             case KKind::Pow:  // xⁿ lives in the function zone, so it dresses like one
             case KKind::Sqr:
+            case KKind::Cube:
+            case KKind::Inv:
+            case KKind::Exp10:
+            case KKind::Exp2:
             case KKind::Fact:
             case KKind::Paren:
             case KKind::Percent:
                 fs = spec_.scientific ? 13.5 : 15;
+                break;
+            case KKind::Second:  // gold modifier key; lit orange while latched
+                bg = second_ ? kKeyWarm : kKeyConst;
+                fg = second_ ? kInkLight : kInkDark;
+                fs = 14;
                 break;
             default:
                 break;  // CE keeps the light function-key look
@@ -516,6 +613,26 @@ private:
                 if (immediate()) imm_.Func("sqr", angle_);
                 else Append(L"^2", false);
                 break;
+            case KKind::Cube:
+                if (immediate()) imm_.Func("cube", angle_);
+                else Append(L"^3", false);
+                break;
+            case KKind::Inv:
+                if (immediate()) imm_.Func("inv", angle_);
+                else Append(L"^-1", false);
+                break;
+            case KKind::Exp10:
+                if (immediate()) imm_.Func("exp10", angle_);
+                else Append(L"10^(", true);
+                break;
+            case KKind::Exp2:
+                if (immediate()) imm_.Func("exp2", angle_);
+                else Append(L"2^(", true);
+                break;
+            case KKind::Second:
+                second_ = !second_;
+                FillKeypad();
+                break;
             case KKind::Fact:
                 if (immediate()) imm_.Func("fact", angle_);
                 else Append(L"!", false);
@@ -549,6 +666,12 @@ private:
                 break;
             case KKind::Empty:
                 break;
+        }
+        // [2nd] is one-shot, like the real TI: the next keypress (shifted or
+        // not) releases it and the keypad returns to its primary labels.
+        if (k.kind != KKind::Second && second_) {
+            second_ = false;
+            FillKeypad();
         }
         Refresh();
     }
@@ -589,10 +712,13 @@ private:
     }
 
     void Refresh() {
-        // Display indicator, like the real device's mode annunciator.
-        indText_.Text(spec_.scientific
-                          ? winrt::hstring(angle_ == AngleMode::Degrees ? L"DEG" : L"RAD")
-                          : winrt::hstring(L""));
+        // Display indicators, like the real device's annunciators (DEG/RAD, and
+        // 2ND while the modifier is latched).
+        std::wstring ind = spec_.scientific
+                               ? (angle_ == AngleMode::Degrees ? L"DEG" : L"RAD")
+                               : L"";
+        if (second_) ind += L"  2ND";
+        indText_.Text(winrt::hstring(ind));
         // Non-Cursor (TI-30Xa): immediate execution -- a single value display that
         // clears and shows each new entry/result, with the pending operation (the
         // "previous" context, e.g. "8 ×") shown small on the line above. No caret.
@@ -626,6 +752,7 @@ private:
     CalcSpec spec_;
     Mode mode_ = Mode::Cursor;
     AngleMode angle_ = AngleMode::Radians;
+    bool second_ = false;    // [2nd] latched (Class II); released by the next key
     bool prettyFont_ = false;
     bool justEvaluated_ = false;
     bool errorFlash_ = false;

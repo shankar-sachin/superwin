@@ -21,6 +21,7 @@ public:
     explicit Expr(std::shared_ptr<const ExprNode> n) : node_(std::move(n)) {}
 
     bool        valid() const { return node_ != nullptr; }
+    bool        isConstant() const;          // folds to a single number (no x)
     double      eval(double x) const;        // numeric value at x
     Expr        derivative() const;          // d/dx, lightly simplified
     Expr        integral() const;            // ∫ dx; invalid Expr if no closed form

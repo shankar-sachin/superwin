@@ -45,6 +45,21 @@ TEST_CASE("EvaluateCalc functions and constants", "[calc]") {
     REQUIRE_THAT(E("cos(pi)"), WithinAbs(-1.0, 1e-12));
 }
 
+TEST_CASE("EvaluateCalc supports the Class II 2nd functions", "[calc]") {
+    REQUIRE_THAT(E("asinh(0)"), WithinAbs(0.0, 1e-12));
+    REQUIRE_THAT(E("asinh(sinh(2))"), WithinAbs(2.0, 1e-9));
+    REQUIRE_THAT(E("acosh(cosh(2))"), WithinAbs(2.0, 1e-9));
+    REQUIRE_THAT(E("atanh(tanh(0.5))"), WithinAbs(0.5, 1e-9));
+    REQUIRE_THAT(E("exp10(3)"), WithinAbs(1000.0, 1e-9));   // 10ˣ
+    REQUIRE_THAT(E("exp2(10)"), WithinAbs(1024.0, 1e-9));   // 2ˣ
+    REQUIRE_THAT(E("log2(8)"), WithinAbs(3.0, 1e-12));      // digit-suffixed names parse
+    REQUIRE_THAT(E("log10(100)"), WithinAbs(2.0, 1e-12));
+    REQUIRE_THAT(E("2pi"), WithinAbs(6.28318530718, 1e-9)); // implicit mult unaffected
+    REQUIRE_THAT(E("cube(4)"), WithinAbs(64.0, 1e-12));     // x³
+    REQUIRE_THAT(E("5^-1"), WithinAbs(0.2, 1e-12));         // x⁻¹ appends ^-1
+    REQUIRE_THAT(E("10^(2)"), WithinAbs(100.0, 1e-12));     // 10ˣ cursor insert
+}
+
 TEST_CASE("EvaluateCalc honors angle mode", "[calc]") {
     REQUIRE_THAT(E("sin(90)", AngleMode::Degrees), WithinAbs(1.0, 1e-12));
     REQUIRE_THAT(E("cos(180)", AngleMode::Degrees), WithinAbs(-1.0, 1e-12));

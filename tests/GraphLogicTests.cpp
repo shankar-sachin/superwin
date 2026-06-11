@@ -44,3 +44,35 @@ TEST_CASE("CompileExpression compiles once, evaluates many", "[GraphLogic]") {
     REQUIRE((*fn)(2) == 4.0);
     REQUIRE((*fn)(5) == 25.0);
 }
+
+TEST_CASE("ConstantValue detects x-free expressions", "[GraphLogic]") {
+    REQUIRE_THAT(ConstantValue("3^2").value(), WithinAbs(9.0, 1e-12));
+    REQUIRE_THAT(ConstantValue("3.4^2").value(), WithinAbs(11.56, 1e-9));
+    REQUIRE_THAT(ConstantValue("pi^3").value(), WithinAbs(31.00627668, 1e-6));
+    REQUIRE_THAT(ConstantValue("2+sqrt(2)").value(), WithinAbs(3.41421356237, 1e-9));
+    REQUIRE_THAT(ConstantValue("sum(n, 1, 10)").value(), WithinAbs(55.0, 1e-12));  // x-free Σ
+    REQUIRE_FALSE(ConstantValue("x^2").has_value());
+    REQUIRE_FALSE(ConstantValue("3x").has_value());
+    REQUIRE_FALSE(ConstantValue("int(sin(x^2))").has_value());  // numeric ∫₀ˣ depends on x
+    REQUIRE_FALSE(ConstantValue("1/0").has_value());            // non-finite
+    REQUIRE_FALSE(ConstantValue("2+").has_value());             // parse error
+}
+
+TEST_CASE("RowResultText shows numeric answers for constant rows", "[GraphLogic]") {
+    REQUIRE(RowResultText("3^2", false).value() == "= 9");
+    REQUIRE(RowResultText("3^2", true).value() == "= 9");
+    REQUIRE(RowResultText("3.4^2", false).value() == "= 11.56");
+    REQUIRE_FALSE(RowResultText("x^2", false).has_value());   // a curve, no popup
+    REQUIRE_FALSE(RowResultText("2+", true).has_value());     // parse error
+}
+
+TEST_CASE("RowResultText shows resolved calculus only in CAS mode", "[GraphLogic]") {
+    // deriv((x^3)) is what LatexToInfix emits for d/dx; it resolves at parse time.
+    auto cas = RowResultText("deriv((x^3))", true);
+    REQUIRE(cas.has_value());
+    REQUIRE(cas->find("x") != std::string::npos);  // an expression, e.g. "= 3x²"
+    REQUIRE_FALSE(RowResultText("deriv((x^3))", false).has_value());  // Class III: none
+    REQUIRE(RowResultText("int(x^2)", true).has_value());
+    // Constant calculus still resolves to a number, CAS or not.
+    REQUIRE(RowResultText("sum(n, 1, 10)", true).value() == "= 55");
+}

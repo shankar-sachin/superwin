@@ -36,14 +36,20 @@ double ApplyUnaryFunc(const std::string& f, double x, AngleMode angle, bool& ok)
     if (f == "sinh") return std::sinh(x);
     if (f == "cosh") return std::cosh(x);
     if (f == "tanh") return std::tanh(x);
+    if (f == "asinh") return std::asinh(x);
+    if (f == "acosh") return std::acosh(x);
+    if (f == "atanh") return std::atanh(x);
     if (f == "ln") return std::log(x);
     if (f == "log" || f == "log10") return std::log10(x);
     if (f == "log2") return std::log2(x);
     if (f == "sqrt") return std::sqrt(x);
     if (f == "cbrt") return std::cbrt(x);
     if (f == "exp") return std::exp(x);
+    if (f == "exp10") return std::pow(10.0, x);  // 10ˣ (2nd of log)
+    if (f == "exp2") return std::exp2(x);        // 2ˣ  (2nd of log₂)
     if (f == "abs") return std::fabs(x);
     if (f == "sqr") return x * x;
+    if (f == "cube") return x * x * x;
     if (f == "inv") return 1.0 / x;
     if (f == "fact") return Factorial(x);
     ok = false;
@@ -165,6 +171,18 @@ private:
         size_t start = pos_;
         while (pos_ < s_.size() && std::isalpha(static_cast<unsigned char>(s_[pos_]))) ++pos_;
         std::string id = s_.substr(start, pos_ - start);
+        // Digit-suffixed function names (log2, log10, exp10, exp2): take the
+        // trailing digits only when that spells a known function, so implicit
+        // multiplication like "e2" or "pi3" keeps its meaning.
+        size_t digEnd = pos_;
+        while (digEnd < s_.size() && std::isdigit(static_cast<unsigned char>(s_[digEnd]))) ++digEnd;
+        if (digEnd > pos_) {
+            const std::string ext = id + s_.substr(pos_, digEnd - pos_);
+            if (ext == "log2" || ext == "log10" || ext == "exp2" || ext == "exp10") {
+                id = ext;
+                pos_ = digEnd;
+            }
+        }
         if (id == "pi") return kPi;
         if (id == "e") return kE;
         if (id == "Ans" || id == "ans" || id == "ANS") return ans_;  // previous result

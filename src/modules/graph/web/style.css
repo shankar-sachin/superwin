@@ -103,6 +103,25 @@ math-field.mf {
 math-field.mf::part(virtual-keyboard-toggle),
 math-field.mf::part(menu-toggle) { display: none; }
 
+/* Desmos-style inline answer pill ("= 9"), filled by the host via swSetResult. */
+.result {
+  display: none;
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 9px;
+  font-size: 14px;
+  font-family: "Cambria Math", "STIX Two Math", Georgia, serif;
+  color: var(--muted);
+  background: var(--hover);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  user-select: none;
+}
+.result.show { display: inline-block; }
+
 .icon {
   flex: 0 0 auto;
   width: 30px; height: 30px;

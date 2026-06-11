@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "modules/calc/CalcLogic.h"
 #include "modules/graph/Expr.h"
 
 namespace superwin {
@@ -59,6 +60,31 @@ std::optional<double> DefiniteIntegral(const std::string& expr, double a, double
         sum += (i % 2 ? 4.0 : 2.0) * e->eval(x);
     }
     return sum * h / 3.0;
+}
+
+std::optional<double> ConstantValue(const std::string& expr) {
+    std::string err;
+    auto e = ParseExpr(expr, err);
+    if (!e || !e->isConstant()) return std::nullopt;
+    const double v = e->eval(0);
+    if (!std::isfinite(v)) return std::nullopt;
+    return v;
+}
+
+std::optional<std::string> RowResultText(const std::string& expr, bool cas) {
+    if (auto v = ConstantValue(expr)) return "= " + FormatCalc(*v);
+    if (!cas) return std::nullopt;
+    // Typed calculus resolves at parse time (LatexToInfix emits these ASCII
+    // forms), so the parsed expression IS the answer -- show it.
+    static const char* kCalculus[] = {"deriv(", "int(", "sum(", "prod(", "d/dx", "\xE2\x88\xAB"};
+    bool typed = false;
+    for (const char* t : kCalculus)
+        if (expr.find(t) != std::string::npos) { typed = true; break; }
+    if (!typed) return std::nullopt;
+    std::string err;
+    auto e = ParseExpr(expr, err);
+    if (!e) return std::nullopt;
+    return "= " + e->simplify().pretty();
 }
 
 }  // namespace superwin

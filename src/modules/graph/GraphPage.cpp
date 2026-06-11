@@ -89,6 +89,7 @@ std::wstring ExeDir() {
 }
 
 struct PlotItem {
+    int id = 0;  // the web row's id, for pushing the "= result" popup back
     std::string infix;
     winrt::Windows::UI::Color color{};
     bool visible = true;
@@ -366,12 +367,36 @@ private:
         items_.clear();
         for (auto const& r : j["rows"]) {
             PlotItem it;
+            it.id = r.value("id", 0);
             it.infix = LatexToInfix(r.value("latex", std::string()));
             it.color = HexColor(r.value("color", std::string("#4f8ef7")));
             it.visible = r.value("visible", true);
             items_.push_back(std::move(it));
         }
+        // A constant line (3^2, pi^3) above/below the current view would plot
+        // entirely off-screen and look like "powers don't graph" -- grow the
+        // y-range so it lands inside, with a little margin.
+        for (auto const& it : items_) {
+            if (!it.visible) continue;
+            auto v = ConstantValue(it.infix);
+            if (!v) continue;
+            if (*v > vymax_) vymax_ = *v + 0.15 * (*v - vymin_);
+            else if (*v < vymin_) vymin_ = *v - 0.15 * (vymax_ - *v);
+        }
+        PushRowResults();
         Render();
+    }
+
+    // Desmos-style inline answers: "= 9" for constant rows (any class), and for
+    // CAS rows the symbolically resolved calculus, e.g. d/dx(x^3) -> "= 3x²".
+    void PushRowResults() {
+        if (!webview_ || !webview_.CoreWebView2()) return;
+        for (auto const& it : items_) {
+            const auto text = RowResultText(it.infix, cas_);
+            const std::string js = "swSetResult(" + std::to_string(it.id) + ", " +
+                                   nlohmann::json(text.value_or(std::string())).dump() + ")";
+            webview_.ExecuteScriptAsync(winrt::hstring(Utf8ToWide(js)));
+        }
     }
 
     void PushTheme() {
